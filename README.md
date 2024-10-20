@@ -1,1 +1,1 @@
-# InvestingAssistant
+# InvestingBot
