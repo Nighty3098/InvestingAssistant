@@ -1,0 +1,7 @@
+
+/src/__pycache__
+src/.env
+src/IPSA.session
+src/IPSA.session-journal
+/src/kb_builder/__pycache__
+/src/resources/__pycache__

@@ -1,13 +1,12 @@
 import os
-
+from dotenv import load_dotenv
 import loguru
 import pretty_errors
-
 from pyrogram import Client, filters
 
-API_ID = ''
-API_HASH = ''
-BOT_TOKEN = ""
+API_ID = os.getenv("API_ID")
+API_HASH = os.getenv("API_HASH")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 app = Client("IPSA", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 

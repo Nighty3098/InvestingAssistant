@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "ipsa"
+version = "0.1.1"
+description = "Telegram bot that will help the user to track the latest news on the stock exchange, get up-to-date information on investments thanks to artificial intelligence"
+authors = ["Nighty3098 <154594695+Nighty3098@users.noreply.github.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pyrogram = "^2.0.106"
+pretty-errors = "^1.2.25"
+loguru = "^0.7.2"
+tgcrypto = "^1.2.5"
+python-dotenv = "^1.0.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
