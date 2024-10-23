@@ -1,7 +1,8 @@
 import os
-from dotenv import load_dotenv
+
 import loguru
 import pretty_errors
+from dotenv import load_dotenv
 from pyrogram import Client, filters
 
 API_ID = os.getenv("API_ID")
@@ -12,6 +13,8 @@ app = Client("IPSA", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 home_dir = os.environ["HOME"]
 log_file = home_dir + "/logs/IPSB.log"
+
+data_file = home_dir + "IPSA/IPSA.db"
 
 logger = loguru.logger
 
@@ -29,3 +32,5 @@ logger.add(
     backtrace=True,
     diagnose=True,
 )
+
+logger.debug("Loading: " + log_file)
