@@ -55,3 +55,35 @@ def check_user_account(connection, user_id):
         return True
     else:
         return False
+
+
+def registering_user(connection, user_id, username):
+    """Register new user in DB"""
+    try:
+        cursor = connection.cursor()
+
+        cursor.execute(
+            "INSERT INTO users (user_id, username, assets) VALUES (?, ?, ?)",
+            (user_id, username, ""),
+        )
+
+        connection.commit()
+
+        cursor.close()
+
+        logger.info(f"Registered new user: {username} ({user_id})")
+    except Exeption as e:
+        logger.error(f"Error '{e}' while registering user")
+
+
+def add_asset(connection, user_id, asset_name, quantity):
+    """Add new asset to user's assets in DB"""
+    try:
+        cursor = connection.cursor()
+
+        cursor.execute(
+            "UPDATE users SET assets = ? WHERE user_id = ?",
+            (f"{asset_name} {quantity}", user_id),
+        )
+    except Exception as e:
+        logger.error(f"Error '{e}' while adding new asset")

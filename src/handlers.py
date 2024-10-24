@@ -1,13 +1,17 @@
+import time
+
 from pyrogram import Client, enums, filters
 
 from config import (API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file,
                     logger)
-from db import check_user_account, create_connection, create_table
+from db import (check_user_account, create_connection, create_table,
+                registering_user)
+from func import register_user
 from kb_builder.user_panel import (asset_management_kb, back_assets_kb,
                                    back_kb, main_kb, register_user_kb)
 from resources.messages import (ASSETS_MESSAGE, WELCOME_MESSAGE,
-                                add_asset_request, register_message,
-                                remove_asset_request)
+                                add_asset_request, not_register_message,
+                                register_message, remove_asset_request)
 
 
 @app.on_message(filters.command("start"))
@@ -35,7 +39,7 @@ async def start(client, message):
         await app.send_photo(
             photo=photo_path,
             chat_id=user_id,
-            caption=register_message,
+            caption=not_register_message,
             reply_markup=register_user_kb,
             parse_mode=enums.ParseMode.MARKDOWN,
         )
@@ -87,3 +91,4 @@ async def answer(client, callback_query):
         )
     if data == "register_user":
         logger.info(f"register_user: {user_id} - {username}")
+        await register_user(user_id, username, callback_query)

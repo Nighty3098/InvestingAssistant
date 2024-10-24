@@ -7,13 +7,23 @@ ASSETS_MESSAGE = """
 """
 
 add_asset_request = """
-**Enter the name of the stock and the quantity via** `/`
+**Enter the code of your shares or their name, and specify their number separated by commas. To split shares, use ` | `.
+**\n
+__Example:__
+`QIWI, 25400 | GTRK, 30000 | INDEX, 100000 | SFIN, 13000`
 """
 
 remove_asset_request = """
-**Enter the name of the stock and the quantity via** `/`
+**Enter the code of your shares or their name, and specify their number separated by commas. To split shares, use ` | `.
+**\n
+__Example:__
+`QIWI, 25400 | GTRK, 30000 | INDEX, 100000 | SFIN, 13000`
+"""
+
+not_register_message = """
+__You're not logged into the bot. Click the button to register__
 """
 
 register_message = """
-__You're not logged into the bot. Click the button to register__
+__You are sucsesfull registered!\n\nLoading...__
 """
