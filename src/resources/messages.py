@@ -3,7 +3,7 @@ WELCOME_MESSAGE = f"""
 """
 
 ASSETS_MESSAGE = """
-🗒️ **Here is a list of your assets. You can change them via the main bot menu** 🗒️
+🗒️ **Here is a list of your stocks. You can change them via the main bot menu** 🗒️
 """
 
 add_asset_request = """
@@ -14,7 +14,7 @@ __Example:__
 """
 
 remove_asset_request = """
-**Enter the code of your shares or their name, and specify their number separated by commas. To split shares, use ` | `.
+**Enter the code of your shares or their name to remove, and specify their number separated by commas. To split shares, use ` | `.
 **\n
 __Example:__
 `QIWI, 25400 | GTRK, 30000 | INDEX, 100000 | SFIN, 13000`

@@ -4,14 +4,17 @@ from pyrogram import Client, enums, filters
 
 from config import (API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file,
                     logger)
-from db import (check_user_account, create_connection, create_table,
-                registering_user)
+from db import (add_stock_to_db, check_user_account, create_connection,
+                create_table, create_users_table, get_users_stocks,
+                registering_user, remove_stock_from_db, update_stock_quantity)
 from func import register_user
-from kb_builder.user_panel import (asset_management_kb, back_assets_kb,
-                                   back_kb, main_kb, register_user_kb)
+from kb_builder.user_panel import (back_kb, back_stocks_kb, main_kb,
+                                   register_user_kb, stocks_management_kb)
 from resources.messages import (ASSETS_MESSAGE, WELCOME_MESSAGE,
                                 add_asset_request, not_register_message,
                                 register_message, remove_asset_request)
+
+user_states = {}
 
 
 @app.on_message(filters.command("start"))
@@ -21,7 +24,7 @@ async def start(client, message):
     username = message.from_user.username
 
     connection = create_connection()
-    create_table(connection)
+    create_users_table(connection)
 
     if check_user_account(connection, user_id):
         photo_path = "resources/header.png"
@@ -54,34 +57,51 @@ async def answer(client, callback_query):
         await callback_query.message.edit_text(
             WELCOME_MESSAGE, reply_markup=main_kb, parse_mode=enums.ParseMode.MARKDOWN
         )
-    if data == "my_assets":
-        logger.info(f"my_assets: {user_id} - {username}")
+
+    if data == "my_stocks":
+        logger.info(f"my_stocks: {user_id} - {username}")
+
+        connection = create_connection()
+        users_stocks = get_users_stocks(connection, user_id)
+        message = ASSETS_MESSAGE + "\n\n__" + users_stocks + "__"
+
         await callback_query.message.edit_text(
-            ASSETS_MESSAGE,
-            reply_markup=asset_management_kb,
+            message,
+            reply_markup=stocks_management_kb,
             parse_mode=enums.ParseMode.MARKDOWN,
         )
-    if data == "add_asset":
-        logger.info(f"add_asset: {user_id} - {username}")
+
+    if data == "add_stocks":
+        logger.info(f"add_stocks: {user_id} - {username}")
+        user_states[user_id] = "adding"
         await callback_query.message.edit_text(
             add_asset_request,
             parse_mode=enums.ParseMode.MARKDOWN,
-            reply_markup=back_assets_kb,
+            reply_markup=back_stocks_kb,
         )
-    if data == "remove_asset":
-        logger.info(f"remove_asset: {user_id} - {username}")
+
+    if data == "remove_stocks":
+        logger.info(f"remove_stocks: {user_id} - {username}")
+        user_states[user_id] = "removing"
         await callback_query.message.edit_text(
             remove_asset_request,
             parse_mode=enums.ParseMode.MARKDOWN,
-            reply_markup=back_assets_kb,
+            reply_markup=back_stocks_kb,
         )
-    if data == "back_assets_kb":
-        logger.info(f"back_assets_kb: {user_id} - {username}")
+
+    if data == "back_stocks_kb":
+        logger.info(f"back_stocks_kb: {user_id} - {username}")
+
+        connection = create_connection()
+        users_stocks = get_users_stocks(connection, user_id)
+        message = ASSETS_MESSAGE + "\n\n__" + users_stocks + "__"
+
         await callback_query.message.edit_text(
-            ASSETS_MESSAGE,
-            reply_markup=asset_management_kb,
+            message,
+            reply_markup=stocks_management_kb,
             parse_mode=enums.ParseMode.MARKDOWN,
         )
+
     if data == "predictions":
         logger.info(f"predictions: {user_id} - {username}")
         await callback_query.message.edit_text(
@@ -89,6 +109,90 @@ async def answer(client, callback_query):
             reply_markup=back_kb,
             parse_mode=enums.ParseMode.MARKDOWN,
         )
+
     if data == "register_user":
         logger.info(f"register_user: {user_id} - {username}")
         await register_user(user_id, username, callback_query)
+
+
+@app.on_message(filters.private & filters.text)
+async def handle_stock_input(client, message):
+    user_id = message.from_user.id
+    username = message.from_user.username or "unknown"
+
+    state = user_states.get(user_id)
+
+    if state == "adding":
+        await process_adding_stocks(client, message, user_id, username)
+    elif state == "removing":
+        await process_removing_stocks(client, message, user_id)
+
+    user_states[user_id] = None
+
+
+async def process_adding_stocks(client, message, user_id, username):
+    stocks_input = message.text.strip()
+    stocks = stocks_input.split("|")
+
+    for stock in stocks:
+        name_quantity = stock.strip().split(",")
+        if len(name_quantity) != 2:
+            await client.send_message(
+                message.chat.id, "Incorrect format. Use: stock_name, quantity."
+            )
+            return
+
+        stock_name = name_quantity[0].strip()
+
+        try:
+            quantity = int(name_quantity[1].strip())
+            if add_stock_to_db(user_id, username, stock_name, quantity):
+                await client.send_message(
+                    message.chat.id,
+                    f"The asset '{stock_name}' has been successfully added or updated.",
+                )
+            else:
+                await client.send_message(message.chat.id, "Failed to add the asset.")
+        except ValueError:
+            await client.send_message(message.chat.id, "The quantity must be a number.")
+            return
+
+
+async def process_removing_stocks(client, message, user_id):
+    stocks_input = message.text.strip()
+    stocks = stocks_input.split("|")
+
+    for stock in stocks:
+        name_quantity = stock.strip().split(",")
+        if len(name_quantity) < 1:
+            continue
+
+        stock_name = name_quantity[0].strip()
+
+        if len(name_quantity) == 2:
+            try:
+                quantity = int(name_quantity[1].strip())
+                if update_stock_quantity(user_id, stock_name, quantity):
+                    await client.send_message(
+                        message.chat.id,
+                        f"The asset '{stock_name}' has been successfully reduced.",
+                    )
+                else:
+                    await client.send_message(
+                        message.chat.id, "Failed to update the asset."
+                    )
+            except ValueError:
+                await client.send_message(
+                    message.chat.id, "The quantity must be a number."
+                )
+                return
+        else:
+            if remove_stock_from_db(user_id, stock_name):
+                await client.send_message(
+                    message.chat.id,
+                    f"The asset '{stock_name}' has been successfully deleted.",
+                )
+            else:
+                await client.send_message(
+                    message.chat.id, "Failed to delete the asset."
+                )

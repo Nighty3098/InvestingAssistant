@@ -23,17 +23,34 @@ def create_connection():
         return None
 
 
-def create_table(connection):
+def create_users_table(connection):
     """Create tables if they do not exist"""
     try:
         cursor = connection.cursor()
         cursor.execute(
             """CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            username TEXT)"""
+        )
+        connection.commit()
+        logger.info("Users table created successfully")
+    except Exception as e:
+        logger.error(f"Error '{e}' while creating users table")
+
+
+def create_table(connection):
+    """Create tables if they do not exist"""
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            """CREATE TABLE IF NOT EXISTS stocks (
+            user_id INTEGER,
             username TEXT,
-            user_id TEXT,
-            assets TEXT
-            )"""  # Убрана лишняя запятая
+            stock_name TEXT,
+            quantity INTEGER,
+            PRIMARY KEY (user_id, stock_name)
+        )"""
         )
         connection.commit()
         logger.info("Tables created successfully")
@@ -63,8 +80,8 @@ def registering_user(connection, user_id, username):
         cursor = connection.cursor()
 
         cursor.execute(
-            "INSERT INTO users (user_id, username, assets) VALUES (?, ?, ?)",
-            (user_id, username, ""),
+            "INSERT INTO users (user_id, username) VALUES (?, ?)",
+            (user_id, username),
         )
 
         connection.commit()
@@ -72,18 +89,99 @@ def registering_user(connection, user_id, username):
         cursor.close()
 
         logger.info(f"Registered new user: {username} ({user_id})")
-    except Exeption as e:
+    except Exception as e:
         logger.error(f"Error '{e}' while registering user")
 
 
-def add_asset(connection, user_id, asset_name, quantity):
-    """Add new asset to user's assets in DB"""
+def get_users_stocks(connection, user_id):
+    response_message = ""
     try:
         cursor = connection.cursor()
 
         cursor.execute(
-            "UPDATE users SET assets = ? WHERE user_id = ?",
-            (f"{asset_name} {quantity}", user_id),
+            "SELECT stock_name, quantity FROM stocks WHERE user_id=?", (user_id,)
         )
+        rows = cursor.fetchall()
+
+        response_message += "Your stocks:\n"
+
+        for row in rows:
+            response_message += f"{row[0]}: {row[1]}\n"
+            logger.info(f"Stocks: {row[0]} - {row[1]} for {user_id}")
+
+        if not rows:
+            response_message += "You don't have any stock."
+
+        connection.close()
     except Exception as e:
-        logger.error(f"Error '{e}' while adding new asset")
+        logger.error(f"Error '{e}' while get users stocks")
+
+    return response_message
+
+
+def add_stock_to_db(user_id, username, stock_name, quantity):
+    conn = create_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            INSERT INTO stocks (user_id, username, stock_name, quantity)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(user_id, stock_name) DO UPDATE SET quantity = quantity + excluded.quantity
+        """,
+            (user_id, username, stock_name, quantity),
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Error adding stock: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def remove_stock_from_db(user_id, stock_name):
+    conn = create_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            DELETE FROM stocks WHERE user_id = ? AND stock_name = ?
+        """,
+            (user_id, stock_name),
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Error removing stock: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def update_stock_quantity(user_id, stock_name, quantity):
+    conn = create_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            UPDATE stocks SET quantity = quantity - ?
+            WHERE user_id = ? AND stock_name = ?
+        """,
+            (quantity, user_id, stock_name),
+        )
+
+        cursor.execute(
+            """
+            DELETE FROM stocks WHERE user_id = ? AND stock_name = ? AND quantity <= 0
+        """,
+            (user_id, stock_name),
+        )
+
+        conn.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Error updating stock quantity: {e}")
+        return False
+    finally:
+        conn.close()
