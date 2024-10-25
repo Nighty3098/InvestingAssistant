@@ -121,12 +121,25 @@ async def handle_stock_input(client, message):
     username = message.from_user.username or "unknown"
 
     state = user_states.get(user_id)
+    photo_path = "resources/header.png"
 
     if state == "adding":
         await process_adding_stocks(client, message, user_id, username)
-        await message.reply("✅ Added successfully", reply_markup=back_stocks_kb)
+        await app.send_photo(
+            photo=photo_path,
+            chat_id=user_id,
+            caption="✅ Added successfully",
+            reply_markup=back_stocks_kb,
+            parse_mode=enums.ParseMode.MARKDOWN,
+        )
     elif state == "removing":
         await process_removing_stocks(client, message, user_id)
-        await message.reply("✅ Removed successfully", reply_markup=back_stocks_kb)
+        await app.send_photo(
+            photo=photo_path,
+            chat_id=user_id,
+            caption="✅ Removed successfully",
+            reply_markup=back_stocks_kb,
+            parse_mode=enums.ParseMode.MARKDOWN,
+        )
 
     user_states[user_id] = None
