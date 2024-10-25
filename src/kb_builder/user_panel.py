@@ -3,16 +3,16 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 main_kb = InlineKeyboardMarkup(
     [
-        [InlineKeyboardButton(text="📊 My assets 📊", callback_data="my_assets")],
+        [InlineKeyboardButton(text="📊 My stocks 📊", callback_data="my_stocks")],
         [InlineKeyboardButton(text="💫 Predictions 💫", callback_data="predictions")],
     ]
 )
 
 
-asset_management_kb = InlineKeyboardMarkup(
+stocks_management_kb = InlineKeyboardMarkup(
     [
-        [InlineKeyboardButton(text="🟢 Add asset 🟢", callback_data="add_asset")],
-        [InlineKeyboardButton(text="🔴 Remove asset 🔴", callback_data="remove_asset")],
+        [InlineKeyboardButton(text="🟢 Add stocks 🟢", callback_data="add_stocks")],
+        [InlineKeyboardButton(text="🔴 Remove stocks 🔴", callback_data="remove_stocks")],
         [InlineKeyboardButton(text="◀️ Back ◀️", callback_data="to_main")],
     ]
 )
@@ -21,8 +21,8 @@ back_kb = InlineKeyboardMarkup(
     [[InlineKeyboardButton(text="◀️ Back ◀️", callback_data="to_main")]]
 )
 
-back_assets_kb = InlineKeyboardMarkup(
-    [[InlineKeyboardButton(text="◀️ Back ◀️", callback_data="back_assets_kb")]]
+back_stocks_kb = InlineKeyboardMarkup(
+    [[InlineKeyboardButton(text="◀️ Back ◀️", callback_data="back_stocks_kb")]]
 )
 
 register_user_kb = InlineKeyboardMarkup(

@@ -113,6 +113,16 @@ files = [
 cli = ["click (>=5.0)"]
 
 [[package]]
+name = "statemachine"
+version = "0.1"
+description = "Simple Finite-State Machines"
+optional = false
+python-versions = "*"
+files = [
+    {file = "statemachine-0.1.tar.gz", hash = "sha256:88e8343cc3dfef7e7d56615ae8e98a34c430086f3cefc65b8be545fa2062d272"},
+]
+
+[[package]]
 name = "tgcrypto"
 version = "1.2.5"
 description = "Fast and Portable Cryptography Extension Library for Pyrogram"
@@ -205,4 +215,4 @@ dev = ["black (>=19.3b0)", "pytest (>=4.6.2)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "561bf4586f4145b4afe7071135eac024b0aef368aead8e2a01c408d2470029dc"
+content-hash = "edc138196735234eab5122ce81d2c8d6f02dedf898d901d183aa8f01bd528d9b"
