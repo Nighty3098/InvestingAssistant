@@ -7,7 +7,7 @@ from config import (API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file,
 from db import (add_stock_to_db, check_user_account, create_connection,
                 create_table, create_users_table, get_users_stocks,
                 registering_user, remove_stock_from_db, update_stock_quantity)
-from func import register_user, process_adding_stocks, process_removing_stocks
+from func import process_adding_stocks, process_removing_stocks, register_user
 from kb_builder.user_panel import (back_kb, back_stocks_kb, main_kb,
                                    register_user_kb, stocks_management_kb)
 from resources.messages import (ASSETS_MESSAGE, WELCOME_MESSAGE,
@@ -124,7 +124,9 @@ async def handle_stock_input(client, message):
 
     if state == "adding":
         await process_adding_stocks(client, message, user_id, username)
+        await message.reply("✅ Added successfully", reply_markup=back_stocks_kb)
     elif state == "removing":
         await process_removing_stocks(client, message, user_id)
+        await message.reply("✅ Removed successfully", reply_markup=back_stocks_kb)
 
     user_states[user_id] = None
