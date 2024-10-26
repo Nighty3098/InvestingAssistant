@@ -7,7 +7,7 @@ from config import (API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file,
 from db import (add_stock_to_db, check_user_account, create_connection,
                 create_table, create_users_table, get_users_stocks,
                 registering_user, remove_stock_from_db, update_stock_quantity)
-from func import register_user, process_adding_stocks, process_removing_stocks
+from func import process_adding_stocks, process_removing_stocks, register_user
 from kb_builder.user_panel import (back_kb, back_stocks_kb, main_kb,
                                    register_user_kb, stocks_management_kb)
 from resources.messages import (ASSETS_MESSAGE, WELCOME_MESSAGE,
@@ -21,7 +21,7 @@ user_states = {}
 async def start(client, message):
     global user_id, username
     user_id = message.from_user.id
-    username = message.from_user.username
+    username = message.from_user.username or "unknown"
 
     connection = create_connection()
     create_users_table(connection)
@@ -60,6 +60,12 @@ async def answer(client, callback_query):
 
     if data == "my_stocks":
         logger.info(f"my_stocks: {user_id} - {username}")
+
+        await callback_query.message.edit_text(
+            "__Loading...__",
+            reply_markup=stocks_management_kb,
+            parse_mode=enums.ParseMode.MARKDOWN,
+        )
 
         connection = create_connection()
         users_stocks = get_users_stocks(connection, user_id)
@@ -121,10 +127,25 @@ async def handle_stock_input(client, message):
     username = message.from_user.username or "unknown"
 
     state = user_states.get(user_id)
+    photo_path = "resources/header.png"
 
     if state == "adding":
         await process_adding_stocks(client, message, user_id, username)
+        await app.send_photo(
+            photo=photo_path,
+            chat_id=user_id,
+            caption="✅ Added successfully",
+            reply_markup=back_stocks_kb,
+            parse_mode=enums.ParseMode.MARKDOWN,
+        )
     elif state == "removing":
         await process_removing_stocks(client, message, user_id)
+        await app.send_photo(
+            photo=photo_path,
+            chat_id=user_id,
+            caption="✅ Removed successfully",
+            reply_markup=back_stocks_kb,
+            parse_mode=enums.ParseMode.MARKDOWN,
+        )
 
     user_states[user_id] = None

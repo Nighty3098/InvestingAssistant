@@ -1,11 +1,11 @@
 import time
 
+import investpy
+import requests
 from pyrogram import enums
+import yfinance as yf
 
 from config import logger
-from db import (add_stock_to_db, check_user_account, create_connection,
-                create_table, create_users_table, get_users_stocks,
-                registering_user, remove_stock_from_db, update_stock_quantity)
 from kb_builder.user_panel import main_kb
 from resources.messages import WELCOME_MESSAGE, register_message
 
@@ -36,6 +36,7 @@ async def register_user(user_id, username, callback_query):
             logger.error(f"Error while registering user")
     except Exception as e:
         logger.error(f"Error '{e}' while registering user")
+
 
 async def process_adding_stocks(client, message, user_id, username):
     stocks_input = message.text.strip()
@@ -103,3 +104,13 @@ async def process_removing_stocks(client, message, user_id):
                 await client.send_message(
                     message.chat.id, "Failed to delete the asset."
                 )
+
+def get_stock_info(ticker):
+    stock = yf.Ticker(ticker)
+    
+    stock_info = stock.info
+    
+    stock_name = stock_info.get('longName', 'Name not found')
+    stock_price = stock_info.get('currentPrice', 'Price not found')
+    
+    return stock_name, stock_price
