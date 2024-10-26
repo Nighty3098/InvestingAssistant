@@ -2,7 +2,15 @@ import asyncio
 import os
 import sqlite3
 
+import yfinance as yf
+
 from config import home_dir, logger
+from func import get_stock_info
+
+
+def get_promo_by_code(ticker):
+    stock = yf.Ticker(ticker)
+    return stock.info["longName"]
 
 
 def create_connection():
@@ -103,11 +111,23 @@ def get_users_stocks(connection, user_id):
         )
         rows = cursor.fetchall()
 
-        response_message += "Your stocks:\n"
+        response_message += "**Your stocks:**\n\n―――――――――――――――\n"
 
         for row in rows:
-            response_message += f"{row[0]}: {row[1]}\n"
-            logger.info(f"Stocks: {row[0]} - {row[1]} for {user_id}")
+            try:
+                stock_name, stock_price = get_stock_info(row[0])
+
+                if(stock_price == "Price not found"):
+                    stock_price = 0
+
+                response_message += f"🚀 **{row[0]} - {stock_name} - {stock_price}**\n__💵 {row[1]} = {float(row[1])*float(stock_price)}$__\n\n"
+                logger.info(
+                    f"**Stocks:** {row[0]} - {stock_name} - {stock_price}: {row[1]} = {float(row[1])*float(stock_price)}"
+                )
+            except Exception as err:
+                logger.error("error while getting stock: " + str(err))
+                response_message += f"{row[0]}: {row[1]}\n"
+                logger.info(f"Stocks: {row[0]} - {row[1]} for {user_id}")
 
         if not rows:
             response_message += "You don't have any stock."

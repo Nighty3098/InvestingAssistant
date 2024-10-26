@@ -21,7 +21,7 @@ user_states = {}
 async def start(client, message):
     global user_id, username
     user_id = message.from_user.id
-    username = message.from_user.username
+    username = message.from_user.username or "unknown"
 
     connection = create_connection()
     create_users_table(connection)
@@ -60,6 +60,12 @@ async def answer(client, callback_query):
 
     if data == "my_stocks":
         logger.info(f"my_stocks: {user_id} - {username}")
+
+        await callback_query.message.edit_text(
+            "__Loading...__",
+            reply_markup=stocks_management_kb,
+            parse_mode=enums.ParseMode.MARKDOWN,
+        )
 
         connection = create_connection()
         users_stocks = get_users_stocks(connection, user_id)

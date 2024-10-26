@@ -15,6 +15,9 @@ tgcrypto = "^1.2.5"
 python-dotenv = "^1.0.1"
 aiosqlite = "^0.20.0"
 statemachine = "^0.1"
+requests = "^2.32.3"
+yfinance = "^0.2.47"
+investpy = {git = "https://github.com/alvarobartt/investpy", rev = "403-patch"}
 
 
 [build-system]
