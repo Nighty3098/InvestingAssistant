@@ -13,6 +13,7 @@ from kb_builder.user_panel import (back_kb, back_stocks_kb, main_kb,
 from resources.messages import (ASSETS_MESSAGE, WELCOME_MESSAGE,
                                 add_asset_request, not_register_message,
                                 register_message, remove_asset_request)
+from parsing import parse_investing_news, start_parsing
 
 user_states = {}
 
@@ -119,6 +120,22 @@ async def answer(client, callback_query):
     if data == "register_user":
         logger.info(f"register_user: {user_id} - {username}")
         await register_user(user_id, username, callback_query)
+
+    if data == "news":
+        sent_message = await callback_query.message.edit_text(
+            "**Collect messages for the last 3 hours**\n__Loading...__",
+            parse_mode=enums.ParseMode.MARKDOWN,
+        )
+
+        results = start_parsing()
+        for result in results:
+            logger.info(f"Sending result to {user_id} - {username}")
+            await app.send_message(user_id, result, parse_mode=enums.ParseMode.MARKDOWN, disable_web_page_preview=True)
+
+        await app.delete_messages(chat_id=callback_query.message.chat.id, message_ids=sent_message.id)
+        photo_path = "resources/header.png"
+        await app.send_photo(photo=photo_path, chat_id=user_id, caption="__Done__", reply_markup=back_kb, parse_mode=enums.ParseMode.MARKDOWN)
+
 
 
 @app.on_message(filters.private & filters.text)
