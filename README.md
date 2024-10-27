@@ -1,6 +1,5 @@
 <div align="center">
     <h1>IPSA</h1>
-    <h3>Investing portfolio smart assistant</h3>
     <br>
     <img src="https://github.com/Nighty3098/DevIcons/blob/main/badges/badges_python.png?raw=true" width="50" height="50" />
     <img src="https://github.com/Nighty3098/DevIcons/blob/main/badges/badges_telegram.png?raw=true" width="50" height="50" />
