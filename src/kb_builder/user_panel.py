@@ -3,8 +3,9 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 main_kb = InlineKeyboardMarkup(
     [
-        [InlineKeyboardButton(text="📊 My stocks 📊", callback_data="my_stocks")],
+        [InlineKeyboardButton(text="💵 My stocks 💵", callback_data="my_stocks")],
         [InlineKeyboardButton(text="💫 Predictions 💫", callback_data="predictions")],
+        [InlineKeyboardButton(text="📊 Analytics 📊", callback_data="analytics")],
     ]
 )
 
@@ -12,7 +13,11 @@ main_kb = InlineKeyboardMarkup(
 stocks_management_kb = InlineKeyboardMarkup(
     [
         [InlineKeyboardButton(text="🟢 Add stocks 🟢", callback_data="add_stocks")],
-        [InlineKeyboardButton(text="🔴 Remove stocks 🔴", callback_data="remove_stocks")],
+        [
+            InlineKeyboardButton(
+                text="🔴 Remove stocks 🔴", callback_data="remove_stocks"
+            )
+        ],
         [InlineKeyboardButton(text="◀️ Back ◀️", callback_data="to_main")],
     ]
 )

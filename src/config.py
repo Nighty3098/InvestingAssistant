@@ -1,7 +1,6 @@
 import os
 
 import loguru
-import pretty_errors
 from dotenv import load_dotenv
 from pyrogram import Client, filters
 
