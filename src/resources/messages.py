@@ -1,5 +1,5 @@
 WELCOME_MESSAGE = f"""
-🫠 **Hello, I'm IPSA - your investing assistant. I will keep you up to date with the latest news about your assets**
+🫠 **Hello, I'm IPSA - your investing assistant. I will keep you up to date with the latest news about your stocks**
 """
 
 ASSETS_MESSAGE = """
@@ -27,3 +27,5 @@ __You're not logged into the bot. Click the button to register__
 register_message = """
 __You are sucsesfull registered!\n\nLoading...__
 """
+
+collect_data = "**Collect messages for the last 6 hours**\n__Loading...__"

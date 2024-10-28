@@ -1,9 +1,12 @@
-import requests
-import bs4
 import re
-from config import logger
-from user_agent import generate_user_agent
 from datetime import datetime, timedelta
+
+import bs4
+import requests
+from user_agent import generate_user_agent
+
+from config import logger
+
 
 def is_date_within_hour(date_string):
     try:
@@ -11,49 +14,48 @@ def is_date_within_hour(date_string):
 
         current_time = datetime.now()
 
-        return (current_time - date_object) <= timedelta(hours=3)
+        return (current_time - date_object) <= timedelta(hours=6)
     except ValueError as e:
         logger.error(f"Error: {e}")
         return False
 
+
 def parse_investing_news(url):
     """Investing.com parser."""
-    
-    headers = {
-        "User -Agent": generate_user_agent()
-    }
+
+    headers = {"User -Agent": generate_user_agent()}
 
     logger.debug(f"Generate user agent: {headers}")
-    
+
     try:
         response = requests.get(url, headers=headers)
         response.raise_for_status()
 
         html = response.text
-        soup = bs4.BeautifulSoup(html, 'html.parser')
+        soup = bs4.BeautifulSoup(html, "html.parser")
 
         articles = soup.findAll("article", {"data-test": "article-item"})
-        
+
         results = []
 
         for article in articles:
             try:
                 title_tag = article.find("a", {"data-test": "article-title-link"})
                 title = title_tag.text if title_tag else "title not found"
-                
+
                 date_tag = article.find("time", {"data-test": "article-publish-date"})
-                date = date_tag['datetime'] if date_tag else "date not found"
-                
-                url = title_tag['href'] if title_tag else "link not found"
-                
+                date = date_tag["datetime"] if date_tag else "date not found"
+
+                url = title_tag["href"] if title_tag else "link not found"
+
                 author_tag = article.find("span", {"data-test": "news-provider-name"})
                 author = author_tag.text if author_tag else "author not found"
-                
+
                 about_tag = article.find("p", {"data-test": "article-description"})
                 about = about_tag.text if about_tag else "about not found"
 
                 if is_date_within_hour(date):
-                    result_string = f"\n\n__{date}__\n\n__{author}__\n\n**{title}**\n\n**{about}**\n\n__{url}__"
+                    result_string = f"\n\n🔥 **{title}**\n\n🌊 **{about}**\n\n✨ __{url}__\n\n📆 __{date}__\n\n😁 __{author}__"
                     results.append(result_string)
                 else:
                     pass
@@ -67,6 +69,7 @@ def parse_investing_news(url):
         logger.error(f"Error: {e}")
         return []
 
+
 def start_parsing():
     results = []
     links = [
@@ -75,7 +78,7 @@ def start_parsing():
         "https://www.investing.com/news/stock-market-news/",
         "https://www.investing.com/news/economic-indicators/",
         "https://www.investing.com/news/economy/",
-        "https://www.investing.com/news/cryptocurrency-news/"
+        "https://www.investing.com/news/cryptocurrency-news/",
     ]
 
     for link in links:
