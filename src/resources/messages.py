@@ -27,3 +27,5 @@ __You're not logged into the bot. Click the button to register__
 register_message = """
 __You are sucsesfull registered!\n\nLoading...__
 """
+
+collect_data="**Collect messages for the last 6 hours**\n__Loading...__"
