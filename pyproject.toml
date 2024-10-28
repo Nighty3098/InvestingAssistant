@@ -18,6 +18,7 @@ statemachine = "^0.1"
 requests = "^2.32.3"
 yfinance = "^0.2.47"
 investpy = {git = "https://github.com/alvarobartt/investpy", rev = "403-patch"}
+user-agent = "^0.1.10"
 
 
 [build-system]
