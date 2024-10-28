@@ -1,11 +1,30 @@
+import asyncio
 import re
+import time
 from datetime import datetime, timedelta
 
 import bs4
 import requests
 from user_agent import generate_user_agent
 
-from config import logger
+from config import app, logger
+
+links = [
+    "https://www.investing.com/news/",
+    "https://www.investing.com/news/forex-news/",
+    "https://www.investing.com/news/commodities-news/",
+    "https://www.investing.com/news/stock-market-news/",
+    "https://www.investing.com/news/economic-indicators/",
+    "https://www.investing.com/news/economy/",
+    "https://www.investing.com/news/cryptocurrency-news/",
+]
+
+
+async def notify_user(user_id, message):
+    try:
+        await app.send_message(user_id, message)
+    except Exception as e:
+        logger.error(f"Error: {e}")
 
 
 def is_date_within_hour(date_string):
@@ -14,7 +33,7 @@ def is_date_within_hour(date_string):
 
         current_time = datetime.now()
 
-        return (current_time - date_object) <= timedelta(hours=6)
+        return (current_time - date_object) <= timedelta(days=1)
     except ValueError as e:
         logger.error(f"Error: {e}")
         return False
@@ -72,17 +91,28 @@ def parse_investing_news(url):
 
 def start_parsing():
     results = []
-    links = [
-        "https://www.investing.com/news/forex-news/",
-        "https://www.investing.com/news/commodities-news/",
-        "https://www.investing.com/news/stock-market-news/",
-        "https://www.investing.com/news/economic-indicators/",
-        "https://www.investing.com/news/economy/",
-        "https://www.investing.com/news/cryptocurrency-news/",
-    ]
 
     for link in links:
         logger.info(f"Parsing: {link}")
         results += parse_investing_news(link)
 
     return results
+
+
+async def check_new_articles(user_id):
+    seen_articles = set()
+
+    while True:
+        for link in links:
+            logger.debug("Parsing: " + link)
+            articles = parse_investing_news(link)
+            for article in articles:
+                if article not in seen_articles:
+                    seen_articles.add(article)
+                    await notify_user(user_id, article)
+
+        await asyncio.sleep(15)
+
+
+def run_check_new_articles(user_id):
+    asyncio.run(check_new_articles(user_id))

@@ -1,5 +1,6 @@
 import time
-
+import os
+import psutil
 import investpy
 import requests
 import yfinance as yf
@@ -12,6 +13,17 @@ from db import (add_stock_to_db, check_user_account, create_connection,
 from kb_builder.user_panel import main_kb
 from resources.messages import WELCOME_MESSAGE, register_message
 
+def log_resource_usage():
+    """RESOURCE USAGE."""
+    process = psutil.Process(os.getpid())
+
+    while True:
+        cpu_usage = process.cpu_percent(interval=1) 
+        memory_info = process.memory_percent()
+
+        logger.info(f"CPU Usage: {cpu_usage}% - Memory Usage: {memory_info}%")
+
+        time.sleep(5)
 
 async def register_user(user_id, username, callback_query):
     try:

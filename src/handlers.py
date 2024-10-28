@@ -1,4 +1,7 @@
+import sys
+import threading
 import time
+from threading import Thread
 
 from pyrogram import Client, enums, filters
 
@@ -7,10 +10,12 @@ from config import (API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file,
 from db import (add_stock_to_db, check_user_account, create_connection,
                 create_table, create_users_table, get_users_stocks,
                 registering_user, remove_stock_from_db, update_stock_quantity)
-from func import process_adding_stocks, process_removing_stocks, register_user
+from func import (log_resource_usage, process_adding_stocks,
+                  process_removing_stocks, register_user)
 from kb_builder.user_panel import (back_kb, back_stocks_kb, main_kb,
                                    register_user_kb, stocks_management_kb)
-from parsing import parse_investing_news, start_parsing
+from parsing import (check_new_articles, parse_investing_news,
+                     run_check_new_articles, start_parsing)
 from resources.messages import (ASSETS_MESSAGE, WELCOME_MESSAGE,
                                 add_asset_request, collect_data,
                                 not_register_message, register_message,
@@ -26,6 +31,8 @@ async def start(client, message):
         user_id = message.from_user.id
         username = message.from_user.username or "unknown"
 
+        Thread(target=log_resource_usage).start()
+
         connection = create_connection()
         create_users_table(connection)
 
@@ -39,6 +46,13 @@ async def start(client, message):
                 reply_markup=main_kb,
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
+
+            # thread = threading.Thread(target=run_check_new_articles, args=(user_id,))
+            # thread.start()
+            # logger.info(
+            #    f"Started thread for checking new articles for user ID: {user_id}"
+            # )
+
         else:
             photo_path = "resources/header.png"
             logger.info(f"New User: {user_id} - {username}")
