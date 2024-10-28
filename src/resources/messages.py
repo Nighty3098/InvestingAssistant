@@ -28,4 +28,4 @@ register_message = """
 __You are sucsesfull registered!\n\nLoading...__
 """
 
-collect_data = "**Collect messages for the last 6 hours**\n__Loading...__"
+collect_data = "**Collect messages for the last day**\n__Loading...__"
