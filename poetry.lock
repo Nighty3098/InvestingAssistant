@@ -918,6 +918,19 @@ socks = ["pysocks (>=1.5.6,!=1.5.7,<2.0)"]
 zstd = ["zstandard (>=0.18.0)"]
 
 [[package]]
+name = "user-agent"
+version = "0.1.10"
+description = "User-Agent generator"
+optional = false
+python-versions = "*"
+files = [
+    {file = "user_agent-0.1.10.tar.gz", hash = "sha256:b86537cb2a9d3bda0e2afcc654ec15b383502836877a67520654acadf73f1723"},
+]
+
+[package.dependencies]
+six = "*"
+
+[[package]]
 name = "webencodings"
 version = "0.5.1"
 description = "Character encoding aliases for legacy web content"
@@ -973,4 +986,4 @@ repair = ["scipy (>=1.6.3)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "1dc9a665ae774357b4cbaa8a254a69c1a1acfa37bed31faa80afba1c70bfd285"
+content-hash = "6a7751d56e03f9347eb13e03a0eb472f984a28019b3eb738777b58d4758a8c4b"
