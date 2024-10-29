@@ -28,4 +28,8 @@ register_message = """
 __You are sucsesfull registered!\n\nLoading...__
 """
 
-collect_data = "**Collect messages for the last day**\n__Loading...__"
+collect_data = "**Collect messages for the last 6 hours**\n__Loading...__"
+
+get_news_period="""
+**Enter the time period for which you want to receive news.**
+__For example: 1 days, 3 hours__"""
