@@ -28,15 +28,16 @@ async def notify_user(user_id, message):
 
 
 def is_date_within_hour(date_string):
-    try:
-        date_object = datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")
+    input_date = datetime.strptime(date_string, '%Y-%m-%d %H:%M:%S')
+    
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    current_time = datetime.strptime(now, '%Y-%m-%d %H:%M:%S')
+    
+    logger.debug(f"Current date: {current_time}, Input date: {input_date}")
 
-        current_time = datetime.now()
-
-        return (current_time - date_object) <= timedelta(days=1)
-    except ValueError as e:
-        logger.error(f"Error: {e}")
-        return False
+    time_difference = abs(current_time - input_date)
+    
+    return time_difference <= timedelta(hours=1)
 
 
 def parse_investing_news(url):
@@ -75,6 +76,7 @@ def parse_investing_news(url):
 
                 if is_date_within_hour(date):
                     result_string = f"\n\n🔥 **{title}**\n\n🌊 **{about}**\n\n✨ __{url}__\n\n📆 __{date}__\n\n😁 __{author}__"
+                    logger.info(f"Adding {url} - {title} to results")
                     results.append(result_string)
                 else:
                     pass

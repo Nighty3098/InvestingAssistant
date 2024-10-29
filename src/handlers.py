@@ -31,7 +31,7 @@ async def start(client, message):
         user_id = message.from_user.id
         username = message.from_user.username or "unknown"
 
-        Thread(target=log_resource_usage).start()
+        # Thread(target=log_resource_usage).start()
 
         connection = create_connection()
         create_users_table(connection)
