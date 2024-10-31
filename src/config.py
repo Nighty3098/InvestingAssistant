@@ -11,7 +11,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 app = Client("IPSA", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 home_dir = os.environ["HOME"]
-log_file = home_dir + "/logs/IPSB.log"
+log_file = home_dir + "/logs/IPSA.log"
 
 data_file = home_dir + "IPSA/IPSA.db"
 

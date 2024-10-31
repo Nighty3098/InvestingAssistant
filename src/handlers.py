@@ -1,3 +1,4 @@
+import asyncio
 import sys
 import threading
 import time
@@ -18,8 +19,8 @@ from parsing import (check_new_articles, parse_investing_news,
                      run_check_new_articles, start_parsing)
 from resources.messages import (ASSETS_MESSAGE, WELCOME_MESSAGE,
                                 add_asset_request, collect_data,
-                                not_register_message, register_message,
-                                remove_asset_request)
+                                get_news_period, not_register_message,
+                                register_message, remove_asset_request)
 
 user_states = {}
 
@@ -47,11 +48,12 @@ async def start(client, message):
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
 
-            # thread = threading.Thread(target=run_check_new_articles, args=(user_id,))
-            # thread.start()
-            # logger.info(
-            #    f"Started thread for checking new articles for user ID: {user_id}"
-            # )
+            thread = threading.Thread(target=run_check_new_articles, args=(user_id,))
+            thread.daemon = True
+            thread.start()
+            logger.info(
+                f"Started thread for checking new articles for user ID: {user_id}"
+            )
 
         else:
             photo_path = "resources/header.png"
@@ -143,30 +145,11 @@ async def answer(client, callback_query):
             await register_user(user_id, username, callback_query)
 
         if data == "news":
-            sent_message = await callback_query.message.edit_text(
-                collect_data,
-                parse_mode=enums.ParseMode.MARKDOWN,
-            )
+            user_states[user_id] = "news"
+            global news_sent_message
 
-            results = start_parsing()
-            for result in results:
-                logger.info(f"Sending result to {user_id} - {username}")
-                await app.send_message(
-                    user_id,
-                    result,
-                    parse_mode=enums.ParseMode.MARKDOWN,
-                    disable_web_page_preview=True,
-                )
-
-            await app.delete_messages(
-                chat_id=callback_query.message.chat.id, message_ids=sent_message.id
-            )
-            photo_path = "resources/header.png"
-            await app.send_photo(
-                photo=photo_path,
-                chat_id=user_id,
-                caption="__Done__",
-                reply_markup=back_kb,
+            news_sent_message = await callback_query.message.edit_text(
+                get_news_period,
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
 
@@ -199,6 +182,29 @@ async def handle_stock_input(client, message):
                 chat_id=user_id,
                 caption="✅ Removed successfully",
                 reply_markup=back_stocks_kb,
+                parse_mode=enums.ParseMode.MARKDOWN,
+            )
+
+        elif state == "news":
+            await app.delete_messages(chat_id=user_id, message_ids=news_sent_message.id)
+
+            data = message.text
+
+            results = start_parsing(data)
+            for result in results:
+                await app.send_message(
+                    user_id,
+                    result,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                    disable_web_page_preview=True,
+                )
+
+            photo_path = "resources/header.png"
+            await app.send_photo(
+                photo=photo_path,
+                chat_id=user_id,
+                caption="__Done__",
+                reply_markup=back_kb,
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
 

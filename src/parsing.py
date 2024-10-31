@@ -8,6 +8,7 @@ import requests
 from user_agent import generate_user_agent
 
 from config import app, logger
+from func import is_within_period, notify_user, parse_time_period
 
 links = [
     "https://www.investing.com/news/",
@@ -20,31 +21,10 @@ links = [
 ]
 
 
-async def notify_user(user_id, message):
-    try:
-        await app.send_message(user_id, message)
-    except Exception as e:
-        logger.error(f"Error: {e}")
-
-
-def is_date_within_hour(date_string):
-    input_date = datetime.strptime(date_string, '%Y-%m-%d %H:%M:%S')
-    
-    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    current_time = datetime.strptime(now, '%Y-%m-%d %H:%M:%S')
-    
-    logger.debug(f"Current date: {current_time}, Input date: {input_date}")
-
-    time_difference = abs(current_time - input_date)
-    
-    return time_difference <= timedelta(hours=1)
-
-
-def parse_investing_news(url):
+def parse_investing_news(url, period):
     """Investing.com parser."""
 
-    headers = {"User -Agent": generate_user_agent()}
-
+    headers = {"User-Agent": generate_user_agent()}
     logger.debug(f"Generate user agent: {headers}")
 
     try:
@@ -55,48 +35,56 @@ def parse_investing_news(url):
         soup = bs4.BeautifulSoup(html, "html.parser")
 
         articles = soup.findAll("article", {"data-test": "article-item"})
-
         results = []
+        seen_articles = set()
 
         for article in articles:
             try:
                 title_tag = article.find("a", {"data-test": "article-title-link"})
-                title = title_tag.text if title_tag else "title not found"
+                title = title_tag.text.strip() if title_tag else "title not found"
 
                 date_tag = article.find("time", {"data-test": "article-publish-date"})
-                date = date_tag["datetime"] if date_tag else "date not found"
+                date = date_tag["datetime"].strip() if date_tag else "date not found"
 
-                url = title_tag["href"] if title_tag else "link not found"
+                article_url = (
+                    title_tag["href"].strip() if title_tag else "link not found"
+                )
 
                 author_tag = article.find("span", {"data-test": "news-provider-name"})
-                author = author_tag.text if author_tag else "author not found"
+                author = author_tag.text.strip() if author_tag else "author not found"
 
                 about_tag = article.find("p", {"data-test": "article-description"})
-                about = about_tag.text if about_tag else "about not found"
+                about = about_tag.text.strip() if about_tag else "about not found"
 
-                if is_date_within_hour(date):
-                    result_string = f"\n\n🔥 **{title}**\n\n🌊 **{about}**\n\n✨ __{url}__\n\n📆 __{date}__\n\n😁 __{author}__"
-                    logger.info(f"Adding {url} - {title} to results")
+                logger.debug(f"Parsing {article_url} - {title}")
+
+                unique_identifier = (title, article_url)
+
+                if unique_identifier not in seen_articles and is_within_period(
+                    date, period
+                ):
+                    seen_articles.add(unique_identifier)
+                    result_string = f"\n\n🔥 **{title}**\n\n🌊 **{about}**\n\n✨ __{article_url}__\n\n📆 __{date}__\n\n😁 __{author}__"
+                    logger.debug(f"Adding {article_url} - {title} to results")
                     results.append(result_string)
-                else:
-                    pass
 
             except Exception as e:
-                logger.error(f"Error: {e}")
+                logger.error(f"Error processing article: {e}")
 
         return results
 
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error: {e}")
+        logger.error(f"Error fetching news: {e}")
         return []
 
 
-def start_parsing():
+def start_parsing(period):
     results = []
 
     for link in links:
-        logger.info(f"Parsing: {link}")
-        results += parse_investing_news(link)
+        logger.debug(f"Parsing: {link}")
+        logger.debug(period)
+        results += parse_investing_news(link, period)
 
     return results
 
@@ -107,13 +95,13 @@ async def check_new_articles(user_id):
     while True:
         for link in links:
             logger.debug("Parsing: " + link)
-            articles = parse_investing_news(link)
+            articles = parse_investing_news(link, "10 minutes")
             for article in articles:
                 if article not in seen_articles:
                     seen_articles.add(article)
                     await notify_user(user_id, article)
 
-        await asyncio.sleep(15)
+        await asyncio.sleep(600)
 
 
 def run_check_new_articles(user_id):
