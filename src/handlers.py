@@ -1,3 +1,4 @@
+import asyncio
 import sys
 import threading
 import time
@@ -18,8 +19,8 @@ from parsing import (check_new_articles, parse_investing_news,
                      run_check_new_articles, start_parsing)
 from resources.messages import (ASSETS_MESSAGE, WELCOME_MESSAGE,
                                 add_asset_request, collect_data,
-                                not_register_message, register_message,
-                                remove_asset_request, get_news_period)
+                                get_news_period, not_register_message,
+                                register_message, remove_asset_request)
 
 user_states = {}
 
@@ -47,11 +48,12 @@ async def start(client, message):
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
 
-            # thread = threading.Thread(target=run_check_new_articles, args=(user_id,))
-            # thread.start()
-            # logger.info(
-            #    f"Started thread for checking new articles for user ID: {user_id}"
-            # )
+            thread = threading.Thread(target=run_check_new_articles, args=(user_id,))
+            thread.daemon = True
+            thread.start()
+            logger.info(
+                f"Started thread for checking new articles for user ID: {user_id}"
+            )
 
         else:
             photo_path = "resources/header.png"
@@ -151,7 +153,6 @@ async def answer(client, callback_query):
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
 
-
     except Exception as e:
         logger.error(f"Error: {e}")
 
@@ -185,9 +186,7 @@ async def handle_stock_input(client, message):
             )
 
         elif state == "news":
-            await app.delete_messages(
-                chat_id=user_id, message_ids=news_sent_message.id
-            )
+            await app.delete_messages(chat_id=user_id, message_ids=news_sent_message.id)
 
             data = message.text
 
