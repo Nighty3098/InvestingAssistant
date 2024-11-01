@@ -1,5 +1,6 @@
 import os
 import re
+import threading
 import time
 from datetime import datetime, timedelta
 
@@ -15,6 +16,28 @@ from db import (add_stock_to_db, check_user_account, create_connection,
                 update_stock_quantity)
 from kb_builder.user_panel import main_kb
 from resources.messages import WELCOME_MESSAGE, register_message
+
+
+def start_monitoring_thread():
+    try:
+        monitor_thread = threading.Thread(target=log_resource_usage)
+        monitor_thread.daemon = True
+        monitor_thread.start()
+        logger.info(f"Started thread for monitoring")
+    except Exception as e:
+        logger.error(f"Error in start_monitoring_thread: {e}")
+
+
+def start_parsing_thread(user_id: str):
+    try:
+        from parsing import run_check_new_articles
+
+        thread = threading.Thread(target=run_check_new_articles, args=(user_id,))
+        thread.daemon = True
+        thread.start()
+        logger.info(f"Started thread for checking new articles for user ID: {user_id}")
+    except Exception as e:
+        logger.error(f"Error in start_parsing_thread: {e}")
 
 
 async def notify_user(user_id, message):
@@ -109,6 +132,8 @@ async def register_user(user_id, username, callback_query):
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
             logger.info(f"User {user_id} - {username} registered")
+
+            start_parsing_thread(user_id)
         else:
             await callback_query.message.edit_text(
                 "**Error while registering user. Try again later**",

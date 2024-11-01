@@ -11,8 +11,9 @@ from config import (API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file,
 from db import (add_stock_to_db, check_user_account, create_connection,
                 create_table, create_users_table, get_users_stocks,
                 registering_user, remove_stock_from_db, update_stock_quantity)
-from func import (log_resource_usage, process_adding_stocks,
-                  process_removing_stocks, register_user, notify_user)
+from func import (log_resource_usage, notify_user, process_adding_stocks,
+                  process_removing_stocks, register_user,
+                  start_monitoring_thread, start_parsing_thread)
 from kb_builder.user_panel import (back_kb, back_stocks_kb, main_kb,
                                    register_user_kb, stocks_management_kb)
 from parsing import (check_new_articles, parse_investing_news,
@@ -46,19 +47,8 @@ async def start(client, message):
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
 
-            monitor_thread = threading.Thread(target=log_resource_usage)
-            monitor_thread.daemon = True
-            monitor_thread.start()
-            logger.info(
-                f"Started thread for monitoring for user ID: {user_id}"
-            )
-
-            thread = threading.Thread(target=run_check_new_articles, args=(user_id,))
-            thread.daemon = True
-            thread.start()
-            logger.info(
-                f"Started thread for checking new articles for user ID: {user_id}"
-            )
+            start_parsing_thread(user_id)
+            start_monitoring_thread()
 
         else:
             photo_path = "resources/header.png"
@@ -202,9 +192,7 @@ async def handle_stock_input(client, message):
 
             results = start_parsing(data)
             for result in results:
-                await notify_user(
-                    user_id,
-                    result)
+                await notify_user(user_id, result)
 
             photo_path = "resources/header.png"
             await app.send_photo(

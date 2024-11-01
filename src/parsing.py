@@ -98,14 +98,14 @@ async def check_new_articles(user_id):
     while True:
         for link in links:
             logger.debug("Parsing: " + link)
-            articles = parse_investing_news(link, "1 hours")
+            articles = parse_investing_news(link, "30 minutes")
             for article in articles:
                 if article not in seen_articles:
                     logger.debug(f"Added to seen articles: {article}")
                     seen_articles.add(article)
                     await notify_user(user_id, article)
 
-        await asyncio.sleep(3600 * 1)
+        await asyncio.sleep(3600 / 2)
 
 
 def run_check_new_articles(user_id):
