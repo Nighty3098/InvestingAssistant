@@ -12,7 +12,7 @@ from db import (add_stock_to_db, check_user_account, create_connection,
                 create_table, create_users_table, get_users_stocks,
                 registering_user, remove_stock_from_db, update_stock_quantity)
 from func import (log_resource_usage, process_adding_stocks,
-                  process_removing_stocks, register_user)
+                  process_removing_stocks, register_user, notify_user)
 from kb_builder.user_panel import (back_kb, back_stocks_kb, main_kb,
                                    register_user_kb, stocks_management_kb)
 from parsing import (check_new_articles, parse_investing_news,
@@ -32,8 +32,6 @@ async def start(client, message):
         user_id = message.from_user.id
         username = message.from_user.username or "unknown"
 
-        # Thread(target=log_resource_usage).start()
-
         connection = create_connection()
         create_users_table(connection)
 
@@ -46,6 +44,13 @@ async def start(client, message):
                 caption=WELCOME_MESSAGE,
                 reply_markup=main_kb,
                 parse_mode=enums.ParseMode.MARKDOWN,
+            )
+
+            monitor_thread = threading.Thread(target=log_resource_usage)
+            monitor_thread.daemon = True
+            monitor_thread.start()
+            logger.info(
+                f"Started thread for monitoring for user ID: {user_id}"
             )
 
             thread = threading.Thread(target=run_check_new_articles, args=(user_id,))
@@ -76,6 +81,9 @@ async def answer(client, callback_query):
 
         if data == "to_main":
             logger.info(f"to_main: {user_id} - {username}")
+
+            user_states[user_id] = "none"
+
             await callback_query.message.edit_text(
                 WELCOME_MESSAGE,
                 reply_markup=main_kb,
@@ -121,6 +129,8 @@ async def answer(client, callback_query):
 
         if data == "back_stocks_kb":
             logger.info(f"back_stocks_kb: {user_id} - {username}")
+
+            user_states[user_id] = "none"
 
             connection = create_connection()
             users_stocks = get_users_stocks(connection, user_id)
@@ -192,12 +202,9 @@ async def handle_stock_input(client, message):
 
             results = start_parsing(data)
             for result in results:
-                await app.send_message(
+                await notify_user(
                     user_id,
-                    result,
-                    parse_mode=enums.ParseMode.MARKDOWN,
-                    disable_web_page_preview=True,
-                )
+                    result)
 
             photo_path = "resources/header.png"
             await app.send_photo(

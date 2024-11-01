@@ -34,6 +34,9 @@ def parse_investing_news(url, period):
         html = response.text
         soup = bs4.BeautifulSoup(html, "html.parser")
 
+        # for line in soup:
+        #     logger.debug(line)
+
         articles = soup.findAll("article", {"data-test": "article-item"})
         results = []
         seen_articles = set()
@@ -95,13 +98,14 @@ async def check_new_articles(user_id):
     while True:
         for link in links:
             logger.debug("Parsing: " + link)
-            articles = parse_investing_news(link, "10 minutes")
+            articles = parse_investing_news(link, "1 hours")
             for article in articles:
                 if article not in seen_articles:
+                    logger.debug(f"Added to seen articles: {article}")
                     seen_articles.add(article)
                     await notify_user(user_id, article)
 
-        await asyncio.sleep(600)
+        await asyncio.sleep(3600 * 1)
 
 
 def run_check_new_articles(user_id):

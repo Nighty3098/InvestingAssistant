@@ -19,7 +19,13 @@ from resources.messages import WELCOME_MESSAGE, register_message
 
 async def notify_user(user_id, message):
     try:
-        await app.send_message(user_id, message)
+        await app.send_message(
+            user_id,
+            message,
+            parse_mode=enums.ParseMode.MARKDOWN,
+            disable_web_page_preview=True,
+        )
+        logger.debug(f"Notification sent to user {user_id}")
     except Exception as e:
         logger.error(f"Error: {e}")
 
@@ -29,6 +35,8 @@ def parse_time_period(period_string):
     try:
         pattern = r"(\d+)\s*(days?|hours?|minutes?|seconds?)"
         match = re.match(pattern, period_string.strip())
+
+        logger.debug(f"Period: {period_string}")
 
         if match:
             value = int(match.group(1))
@@ -47,6 +55,7 @@ def parse_time_period(period_string):
     except Exception as e:
         logger.error(f"Error in parse_time_period: {e}")
         return None
+
 
 def is_within_period(date_string, period_string):
     """Check if the given date is within the specified period from now."""
@@ -68,7 +77,6 @@ def is_within_period(date_string, period_string):
         return False
 
 
-
 def log_resource_usage():
     """RESOURCE USAGE."""
     process = psutil.Process(os.getpid())
@@ -77,8 +85,8 @@ def log_resource_usage():
         cpu_usage = process.cpu_percent(interval=1)
         memory_info = process.memory_percent()
 
-        logger.info(f"{process}")
-        logger.info(f"CPU Usage: {cpu_usage}% - Memory Usage: {memory_info}%")
+        logger.debug(f"{process}")
+        logger.debug(f"CPU Usage: {cpu_usage}% - Memory Usage: {memory_info}%")
 
         time.sleep(5)
 
