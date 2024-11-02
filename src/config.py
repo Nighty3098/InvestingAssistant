@@ -3,6 +3,7 @@ import os
 import loguru
 from dotenv import load_dotenv
 from pyrogram import Client, errors
+from pyrogram.enums import parse_mode
 
 load_dotenv()
 
@@ -13,7 +14,6 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 home_dir = os.path.expanduser("~")
 log_file = os.path.join(home_dir, "logs", "IPSA.log")
 data_file = os.path.join(home_dir, "IPSA", "IPSA.db")
-session_file_path = os.path.join(home_dir, "IPSA", "IPSA.session")
 
 if not all([API_ID, API_HASH, BOT_TOKEN]):
     raise ValueError(
@@ -21,7 +21,13 @@ if not all([API_ID, API_HASH, BOT_TOKEN]):
     )
 
 try:
-    app = Client(name="IPSA", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+    app = Client(
+        name="IPSA",
+        api_id=API_ID,
+        api_hash=API_HASH,
+        bot_token=BOT_TOKEN,
+        in_memory=False
+    )
 except Exception as e:
     raise RuntimeError(f"Failed to initialize the Pyrogram Client: {e}")
 
@@ -31,7 +37,7 @@ try:
     logger.add(
         log_file,
         level="DEBUG",
-        rotation="50 MB",
+        rotation="100 MB",
         retention="30 days",
         compression="zip",
         backtrace=True,
