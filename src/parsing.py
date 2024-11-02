@@ -8,8 +8,9 @@ import requests
 from user_agent import generate_user_agent
 
 from config import app, logger
-from func import is_within_period, notify_user, parse_time_period, convert_to_utc, to_local
 from db import get_city_from_db
+from func import (convert_to_utc, is_within_period, notify_user,
+                  parse_time_period, to_local)
 
 links = [
     "https://ru.investing.com/news/",
@@ -27,7 +28,7 @@ links = [
     "https://www.investing.com/news/economic-indicators/",
     "https://www.investing.com/news/economy/",
     "https://www.investing.com/news/cryptocurrency-news/",
-    "https://www.investing.com/news/economic-indicators/"
+    "https://www.investing.com/news/economic-indicators/",
 ]
 
 
@@ -38,14 +39,12 @@ def parse_investing_news(url, period, user_id):
     logger.debug(f"Generate user agent: {headers}")
 
     try:
-        # Get timezone from the database
         timezone_info = get_city_from_db(user_id)
 
-        # Check if timezone_info is a tuple and unpack it
         if isinstance(timezone_info, tuple):
-            timezone = timezone_info[0]  # Assuming the first element is the timezone
+            timezone = timezone_info[0]
         else:
-            timezone = timezone_info  # If it's already a string
+            timezone = timezone_info
 
         response = requests.get(url, headers=headers)
         response.raise_for_status()
@@ -114,14 +113,15 @@ async def check_new_articles(user_id):
     while True:
         for link in links:
             logger.info("Parsing: " + link)
-            articles = parse_investing_news(link, "1 hours", user_id)
+            articles = parse_investing_news(link, "10 minutes", user_id)
             for article in articles:
                 if article not in seen_articles:
                     logger.debug(f"Added to seen articles: {article}")
                     seen_articles.add(article)
                     await notify_user(user_id, article)
 
-        await asyncio.sleep(3600*1)
+        logger.info("Sleeping...")
+        await asyncio.sleep(3600 / 6)
 
 
 def run_check_new_articles(user_id):

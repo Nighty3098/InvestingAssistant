@@ -5,8 +5,13 @@ main_kb = InlineKeyboardMarkup(
     [
         [InlineKeyboardButton(text="💵 My stocks 💵", callback_data="my_stocks")],
         [InlineKeyboardButton(text="📄 News 📄", callback_data="news")],
-        [InlineKeyboardButton(text="📊 Analytics 📊", callback_data="analytics")],
-        [InlineKeyboardButton(text="Set TimeZone", callback_data="set_city")],
+        [InlineKeyboardButton(text="🚀 Analytics 🚀", callback_data="analytics")],
+        [InlineKeyboardButton(text="📆 Set time zone 📆", callback_data="set_city")],
+        [
+            InlineKeyboardButton(
+                text="💬 Tech Support 💬", url="https://t.me/DXS_TechSupport_bot"
+            )
+        ],
     ]
 )
 
@@ -32,5 +37,12 @@ back_stocks_kb = InlineKeyboardMarkup(
 )
 
 register_user_kb = InlineKeyboardMarkup(
-    [[InlineKeyboardButton(text="🚀 Register 🚀", callback_data="register_user")]]
+    [
+        [InlineKeyboardButton(text="🚀 Register 🚀", callback_data="register_user")],
+        [
+            InlineKeyboardButton(
+                text="💬 Tech Support 💬", url="https://t.me/DXS_TechSupport_bot"
+            )
+        ],
+    ]
 )
