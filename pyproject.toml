@@ -20,6 +20,7 @@ yfinance = "^0.2.47"
 investpy = {git = "https://github.com/alvarobartt/investpy", rev = "403-patch"}
 user-agent = "^0.1.10"
 psutil = "^6.1.0"
+pytz = "^2024.2"
 
 
 [build-system]
