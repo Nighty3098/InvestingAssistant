@@ -10,19 +10,20 @@ API_ID = os.getenv("API_ID")
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
+home_dir = os.path.expanduser("~")
+log_file = os.path.join(home_dir, "logs", "IPSA.log")
+data_file = os.path.join(home_dir, "IPSA", "IPSA.db")
+session_file_path = os.path.join(home_dir, "IPSA", "IPSA.session")
+
 if not all([API_ID, API_HASH, BOT_TOKEN]):
     raise ValueError(
         "Missing one or more required environment variables: API_ID, API_HASH, BOT_TOKEN."
     )
 
 try:
-    app = Client("IPSA", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+    app = Client(name="IPSA", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 except Exception as e:
     raise RuntimeError(f"Failed to initialize the Pyrogram Client: {e}")
-
-home_dir = os.path.expanduser("~")
-log_file = os.path.join(home_dir, "logs", "IPSA.log")
-data_file = os.path.join(home_dir, "IPSA", "IPSA.db")
 
 logger = loguru.logger
 
