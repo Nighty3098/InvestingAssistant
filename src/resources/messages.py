@@ -30,6 +30,21 @@ __You are sucsesfull registered!\n\nLoading...__
 
 collect_data = "**Collect messages for the last 6 hours**\n__Loading...__"
 
-get_news_period="""
+get_news_period = """
 **Enter the time period for which you want to receive news.**
 __For example: 1 days, 3 hours__"""
+
+get_users_city = """
+__Enter your timezone (On English)__
+
+For example:
+
+Moscow: `Europe/Moscow`
+New York: `America/New_York`
+Los Angeles: `America/Los_Angeles`
+London: `Europe/London`
+Tokyo: `Asia/Tokyo`
+Paris: `Europe/Paris`
+Berlin: `Europe/Berlin`
+Novosibirsk: `Asia/Novosibirsk`
+"""

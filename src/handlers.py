@@ -8,9 +8,10 @@ from pyrogram import Client, enums, filters
 
 from config import (API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file,
                     logger)
-from db import (add_stock_to_db, check_user_account, create_connection,
-                create_table, create_users_table, get_users_stocks,
-                registering_user, remove_stock_from_db, update_stock_quantity)
+from db import (add_city_to_db, add_stock_to_db, check_user_account,
+                create_connection, create_table, create_users_table,
+                get_users_stocks, registering_user, remove_stock_from_db,
+                update_stock_quantity)
 from func import (log_resource_usage, notify_user, process_adding_stocks,
                   process_removing_stocks, register_user,
                   start_monitoring_thread, start_parsing_thread)
@@ -20,8 +21,9 @@ from parsing import (check_new_articles, parse_investing_news,
                      run_check_new_articles, start_parsing)
 from resources.messages import (ASSETS_MESSAGE, WELCOME_MESSAGE,
                                 add_asset_request, collect_data,
-                                get_news_period, not_register_message,
-                                register_message, remove_asset_request)
+                                get_news_period, get_users_city,
+                                not_register_message, register_message,
+                                remove_asset_request)
 
 user_states = {}
 
@@ -153,6 +155,15 @@ async def answer(client, callback_query):
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
 
+        if data == "set_city":
+            user_states[user_id] = "set_city"
+            global city_sent_message
+
+            city_sent_message = await callback_query.message.edit_text(
+                get_users_city,
+                parse_mode=enums.ParseMode.MARKDOWN,
+            )
+
     except Exception as e:
         logger.error(f"Error: {e}")
 
@@ -190,9 +201,24 @@ async def handle_stock_input(client, message):
 
             data = message.text
 
-            results = start_parsing(data)
+            results = start_parsing(data, user_id)
             for result in results:
                 await notify_user(user_id, result)
+
+            photo_path = "resources/header.png"
+            await app.send_photo(
+                photo=photo_path,
+                chat_id=user_id,
+                caption="__Done__",
+                reply_markup=back_kb,
+                parse_mode=enums.ParseMode.MARKDOWN,
+            )
+        elif state == "set_city":
+            await app.delete_messages(chat_id=user_id, message_ids=city_sent_message.id)
+
+            data = message.text
+
+            add_city_to_db(user_id, data)
 
             photo_path = "resources/header.png"
             await app.send_photo(

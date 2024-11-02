@@ -8,7 +8,8 @@ import requests
 from user_agent import generate_user_agent
 
 from config import app, logger
-from func import is_within_period, notify_user, parse_time_period
+from func import is_within_period, notify_user, parse_time_period, convert_to_utc, to_local
+from db import get_city_from_db
 
 links = [
     "https://www.investing.com/news/",
@@ -18,24 +19,31 @@ links = [
     "https://www.investing.com/news/economic-indicators/",
     "https://www.investing.com/news/economy/",
     "https://www.investing.com/news/cryptocurrency-news/",
+    "https://ru.investing.com/news/economic-indicators/"
 ]
 
 
-def parse_investing_news(url, period):
+def parse_investing_news(url, period, user_id):
     """Investing.com parser."""
 
     headers = {"User-Agent": generate_user_agent()}
     logger.debug(f"Generate user agent: {headers}")
 
     try:
+        # Get timezone from the database
+        timezone_info = get_city_from_db(user_id)
+
+        # Check if timezone_info is a tuple and unpack it
+        if isinstance(timezone_info, tuple):
+            timezone = timezone_info[0]  # Assuming the first element is the timezone
+        else:
+            timezone = timezone_info  # If it's already a string
+
         response = requests.get(url, headers=headers)
         response.raise_for_status()
 
         html = response.text
         soup = bs4.BeautifulSoup(html, "html.parser")
-
-        # for line in soup:
-        #     logger.debug(line)
 
         articles = soup.findAll("article", {"data-test": "article-item"})
         results = []
@@ -64,10 +72,10 @@ def parse_investing_news(url, period):
                 unique_identifier = (title, article_url)
 
                 if unique_identifier not in seen_articles and is_within_period(
-                    date, period
+                    date, period, user_id
                 ):
                     seen_articles.add(unique_identifier)
-                    result_string = f"\n\n🔥 **{title}**\n\n🌊 **{about}**\n\n✨ __{article_url}__\n\n📆 __{date}__\n\n😁 __{author}__"
+                    result_string = f"\n\n🔥 **{title}**\n\n🌊 **{about}**\n\n✨ __{article_url}__\n\n📆 __{to_local(timezone, date)}__\n\n😁 __{author}__"
                     logger.debug(f"Adding {article_url} - {title} to results")
                     results.append(result_string)
 
@@ -81,13 +89,13 @@ def parse_investing_news(url, period):
         return []
 
 
-def start_parsing(period):
+def start_parsing(period, user_id):
     results = []
 
     for link in links:
-        logger.debug(f"Parsing: {link}")
+        logger.info(f"Parsing: {link}")
         logger.debug(period)
-        results += parse_investing_news(link, period)
+        results += parse_investing_news(link, period, user_id)
 
     return results
 
@@ -97,15 +105,15 @@ async def check_new_articles(user_id):
 
     while True:
         for link in links:
-            logger.debug("Parsing: " + link)
-            articles = parse_investing_news(link, "30 minutes")
+            logger.info("Parsing: " + link)
+            articles = parse_investing_news(link, "1 hours", user_id)
             for article in articles:
                 if article not in seen_articles:
                     logger.debug(f"Added to seen articles: {article}")
                     seen_articles.add(article)
                     await notify_user(user_id, article)
 
-        await asyncio.sleep(3600 / 2)
+        await asyncio.sleep(3600*1)
 
 
 def run_check_new_articles(user_id):
