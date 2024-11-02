@@ -3,7 +3,7 @@ import re
 import threading
 import time
 from datetime import datetime, timedelta
-
+import pytz
 import investpy
 import psutil
 import requests
@@ -13,10 +13,9 @@ from pyrogram import enums
 from config import app, logger
 from db import (add_stock_to_db, check_user_account, create_connection,
                 get_users_stocks, registering_user, remove_stock_from_db,
-                update_stock_quantity)
+                update_stock_quantity, get_city_from_db)
 from kb_builder.user_panel import main_kb
 from resources.messages import WELCOME_MESSAGE, register_message
-
 
 def start_monitoring_thread():
     try:
@@ -52,6 +51,22 @@ async def notify_user(user_id, message):
     except Exception as e:
         logger.error(f"Error: {e}")
 
+def convert_to_utc(user_timezone, local_time_str):
+    """Convert local time string to UTC based on user's timezone."""
+    local_time = datetime.strptime(local_time_str, "%Y-%m-%d %H:%M:%S")
+    local_tz = pytz.timezone(user_timezone)
+    localized_time = local_tz.localize(local_time)
+    utc_time = localized_time.astimezone(pytz.utc)
+    return utc_time.strftime("%Y-%m-%d %H:%M:%S")
+
+def to_local(user_timezone, utc_time_str):
+    """Convert UTC time string to local time based on user's timezone."""
+    utc_time = datetime.strptime(utc_time_str, "%Y-%m-%d %H:%M:%S")
+    utc_time = pytz.utc.localize(utc_time)
+    local_tz = pytz.timezone(user_timezone)
+    local_time = utc_time.astimezone(local_tz)
+    return local_time.strftime("%Y-%m-%d %H:%M:%S")
+
 
 def parse_time_period(period_string):
     """Parse a time period string into a timedelta object."""
@@ -79,14 +94,25 @@ def parse_time_period(period_string):
         logger.error(f"Error in parse_time_period: {e}")
         return None
 
-
-def is_within_period(date_string, period_string):
+def is_within_period(date_string, period_string, user_id):
     """Check if the given date is within the specified period from now."""
     try:
         input_date = datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")
-        now = datetime.now()
+        current_time = datetime.now()
 
-        time_difference = abs(now - input_date)
+        timezone = get_city_from_db(user_id)
+        
+        if isinstance(timezone, tuple):
+            timezone = timezone[0]
+
+        new_user_time_str = convert_to_utc(timezone, current_time.strftime("%Y-%m-%d %H:%M:%S"))
+
+        new_user_time = datetime.strptime(new_user_time_str, "%Y-%m-%d %H:%M:%S")
+
+        logger.debug(f"Input Date: {input_date}")
+        logger.debug(f"Current Time in User's Timezone: {new_user_time}")
+
+        time_difference = abs(new_user_time - input_date)
         period = parse_time_period(period_string)
 
         if period is None:
@@ -94,11 +120,11 @@ def is_within_period(date_string, period_string):
             return False
 
         logger.debug(f"Period: {period} Time difference: {time_difference}")
+        
         return time_difference <= period
     except Exception as e:
         logger.error(f"Error in is_within_period: {e}")
         return False
-
 
 def log_resource_usage():
     """RESOURCE USAGE."""
