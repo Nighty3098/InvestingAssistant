@@ -38,13 +38,17 @@ BOT_TOKEN = ""
 python3 main.py
 ```
 
+<br><br><br>
+
 <div align="center">
+<details>
+<summary><h3>Screenshots</h3></summary>
 
-<img src="images/1.png" width="25%" />
-<img src="images/2.png" width="25%" />
+<img src="images/1.png" width="45%" />
+<img src="images/2.png" width="45%" />
 <br/>
-<img src="images/3.png" width="25%" />
-<br />
-<img src="images/4.png" width="25%" />
+<img src="images/3.png" width="45%" />
+<img src="images/4.png" width="45%" />
 
+</details>
 </div>
