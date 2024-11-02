@@ -6,7 +6,6 @@ import yfinance as yf
 
 from config import home_dir, logger
 
-
 def get_stock_info(ticker):
     stock = yf.Ticker(ticker)
 
@@ -49,7 +48,8 @@ def create_users_table(connection):
             """CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
-            username TEXT)"""
+            username TEXT,
+            city TEXT)"""
         )
         connection.commit()
         logger.info("Users table created successfully")
@@ -218,5 +218,52 @@ def update_stock_quantity(user_id, stock_name, quantity):
     except Exception as e:
         logger.error(f"Error updating stock quantity: {e}")
         return False
+    finally:
+        conn.close()
+
+
+def id_by_user_id(user_id):
+    conn = create_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id FROM users WHERE user_id = ?", (user_id,))
+        return cursor.fetchone()
+    except Exception as e:
+        logger.error(f"Error getting id: {e}")
+        return None
+    finally:
+        conn.close()
+
+def add_city_to_db(user_id, city):
+    conn = create_connection()
+    cursor = conn.cursor()
+
+    primary_id = id_by_user_id(user_id)
+
+    try:
+        cursor.execute(
+            """
+            UPDATE users SET city = ?
+            WHERE user_id = ?
+            """,
+            (city, user_id),
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Error adding city: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_city_from_db(user_id):
+    conn = create_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT city FROM users WHERE user_id = ?", (user_id,))
+        return cursor.fetchone()
+    except Exception as e:
+        logger.error(f"Error getting city: {e}")
+        return None
     finally:
         conn.close()

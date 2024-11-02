@@ -8,19 +8,22 @@ from pyrogram import Client, enums, filters
 
 from config import (API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file,
                     logger)
-from db import (add_stock_to_db, check_user_account, create_connection,
-                create_table, create_users_table, get_users_stocks,
-                registering_user, remove_stock_from_db, update_stock_quantity)
-from func import (log_resource_usage, process_adding_stocks,
-                  process_removing_stocks, register_user)
+from db import (add_city_to_db, add_stock_to_db, check_user_account,
+                create_connection, create_table, create_users_table,
+                get_users_stocks, registering_user, remove_stock_from_db,
+                update_stock_quantity)
+from func import (log_resource_usage, notify_user, process_adding_stocks,
+                  process_removing_stocks, register_user,
+                  start_monitoring_thread, start_parsing_thread)
 from kb_builder.user_panel import (back_kb, back_stocks_kb, main_kb,
                                    register_user_kb, stocks_management_kb)
 from parsing import (check_new_articles, parse_investing_news,
                      run_check_new_articles, start_parsing)
 from resources.messages import (ASSETS_MESSAGE, WELCOME_MESSAGE,
                                 add_asset_request, collect_data,
-                                get_news_period, not_register_message,
-                                register_message, remove_asset_request)
+                                get_news_period, get_users_city,
+                                not_register_message, register_message,
+                                remove_asset_request)
 
 user_states = {}
 
@@ -31,8 +34,6 @@ async def start(client, message):
         global user_id, username
         user_id = message.from_user.id
         username = message.from_user.username or "unknown"
-
-        # Thread(target=log_resource_usage).start()
 
         connection = create_connection()
         create_users_table(connection)
@@ -48,12 +49,8 @@ async def start(client, message):
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
 
-            thread = threading.Thread(target=run_check_new_articles, args=(user_id,))
-            thread.daemon = True
-            thread.start()
-            logger.info(
-                f"Started thread for checking new articles for user ID: {user_id}"
-            )
+            start_parsing_thread(user_id)
+            start_monitoring_thread()
 
         else:
             photo_path = "resources/header.png"
@@ -76,6 +73,9 @@ async def answer(client, callback_query):
 
         if data == "to_main":
             logger.info(f"to_main: {user_id} - {username}")
+
+            user_states[user_id] = "none"
+
             await callback_query.message.edit_text(
                 WELCOME_MESSAGE,
                 reply_markup=main_kb,
@@ -122,6 +122,8 @@ async def answer(client, callback_query):
         if data == "back_stocks_kb":
             logger.info(f"back_stocks_kb: {user_id} - {username}")
 
+            user_states[user_id] = "none"
+
             connection = create_connection()
             users_stocks = get_users_stocks(connection, user_id)
             message = ASSETS_MESSAGE + "\n\n__" + users_stocks + "__"
@@ -150,6 +152,15 @@ async def answer(client, callback_query):
 
             news_sent_message = await callback_query.message.edit_text(
                 get_news_period,
+                parse_mode=enums.ParseMode.MARKDOWN,
+            )
+
+        if data == "set_city":
+            user_states[user_id] = "set_city"
+            global city_sent_message
+
+            city_sent_message = await callback_query.message.edit_text(
+                get_users_city,
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
 
@@ -190,14 +201,24 @@ async def handle_stock_input(client, message):
 
             data = message.text
 
-            results = start_parsing(data)
+            results = start_parsing(data, user_id)
             for result in results:
-                await app.send_message(
-                    user_id,
-                    result,
-                    parse_mode=enums.ParseMode.MARKDOWN,
-                    disable_web_page_preview=True,
-                )
+                await notify_user(user_id, result)
+
+            photo_path = "resources/header.png"
+            await app.send_photo(
+                photo=photo_path,
+                chat_id=user_id,
+                caption="__Done__",
+                reply_markup=back_kb,
+                parse_mode=enums.ParseMode.MARKDOWN,
+            )
+        elif state == "set_city":
+            await app.delete_messages(chat_id=user_id, message_ids=city_sent_message.id)
+
+            data = message.text
+
+            add_city_to_db(user_id, data)
 
             photo_path = "resources/header.png"
             await app.send_photo(
