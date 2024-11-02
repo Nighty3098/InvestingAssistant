@@ -12,6 +12,14 @@ from func import is_within_period, notify_user, parse_time_period, convert_to_ut
 from db import get_city_from_db
 
 links = [
+    "https://ru.investing.com/news/",
+    "https://ru.investing.com/news/forex-news/",
+    "https://ru.investing.com/news/commodities-news/",
+    "https://ru.investing.com/news/stock-market-news/",
+    "https://ru.investing.com/news/economic-indicators/",
+    "https://ru.investing.com/news/economy/",
+    "https://ru.investing.com/news/cryptocurrency-news/",
+    "https://ru.investing.com/news/economic-indicators/",
     "https://www.investing.com/news/",
     "https://www.investing.com/news/forex-news/",
     "https://www.investing.com/news/commodities-news/",
@@ -19,7 +27,7 @@ links = [
     "https://www.investing.com/news/economic-indicators/",
     "https://www.investing.com/news/economy/",
     "https://www.investing.com/news/cryptocurrency-news/",
-    "https://ru.investing.com/news/economic-indicators/"
+    "https://www.investing.com/news/economic-indicators/"
 ]
 
 
