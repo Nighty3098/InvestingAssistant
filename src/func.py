@@ -3,19 +3,23 @@ import re
 import threading
 import time
 from datetime import datetime, timedelta
-import pytz
+
 import investpy
 import psutil
+import pytz
 import requests
 import yfinance as yf
 from pyrogram import enums
 
 from config import app, logger
 from db import (add_stock_to_db, check_user_account, create_connection,
-                get_users_stocks, registering_user, remove_stock_from_db,
-                update_stock_quantity, get_city_from_db)
+                get_city_from_db, get_users_stocks, registering_user,
+                remove_stock_from_db, update_stock_quantity)
 from kb_builder.user_panel import main_kb
 from resources.messages import WELCOME_MESSAGE, register_message
+
+user_threads = {}
+
 
 def start_monitoring_thread():
     try:
@@ -31,9 +35,15 @@ def start_parsing_thread(user_id: str):
     try:
         from parsing import run_check_new_articles
 
+        if user_id in user_threads:
+            logger.info(f"Thread already running for user ID: {user_id}. Restarting...")
+
         thread = threading.Thread(target=run_check_new_articles, args=(user_id,))
         thread.daemon = True
         thread.start()
+
+        user_threads[user_id] = thread
+
         logger.info(f"Started thread for checking new articles for user ID: {user_id}")
     except Exception as e:
         logger.error(f"Error in start_parsing_thread: {e}")
@@ -51,6 +61,7 @@ async def notify_user(user_id, message):
     except Exception as e:
         logger.error(f"Error: {e}")
 
+
 def convert_to_utc(user_timezone, local_time_str):
     """Convert local time string to UTC based on user's timezone."""
     local_time = datetime.strptime(local_time_str, "%Y-%m-%d %H:%M:%S")
@@ -58,6 +69,7 @@ def convert_to_utc(user_timezone, local_time_str):
     localized_time = local_tz.localize(local_time)
     utc_time = localized_time.astimezone(pytz.utc)
     return utc_time.strftime("%Y-%m-%d %H:%M:%S")
+
 
 def to_local(user_timezone, utc_time_str):
     """Convert UTC time string to local time based on user's timezone."""
@@ -94,6 +106,7 @@ def parse_time_period(period_string):
         logger.error(f"Error in parse_time_period: {e}")
         return None
 
+
 def is_within_period(date_string, period_string, user_id):
     """Check if the given date is within the specified period from now."""
     try:
@@ -101,11 +114,13 @@ def is_within_period(date_string, period_string, user_id):
         current_time = datetime.now()
 
         timezone = get_city_from_db(user_id)
-        
+
         if isinstance(timezone, tuple):
             timezone = timezone[0]
 
-        new_user_time_str = convert_to_utc(timezone, current_time.strftime("%Y-%m-%d %H:%M:%S"))
+        new_user_time_str = convert_to_utc(
+            timezone, current_time.strftime("%Y-%m-%d %H:%M:%S")
+        )
 
         new_user_time = datetime.strptime(new_user_time_str, "%Y-%m-%d %H:%M:%S")
 
@@ -120,11 +135,12 @@ def is_within_period(date_string, period_string, user_id):
             return False
 
         logger.debug(f"Period: {period} Time difference: {time_difference}")
-        
+
         return time_difference <= period
     except Exception as e:
         logger.error(f"Error in is_within_period: {e}")
         return False
+
 
 def log_resource_usage():
     """RESOURCE USAGE."""
@@ -137,7 +153,7 @@ def log_resource_usage():
         logger.debug(f"{process}")
         logger.debug(f"CPU Usage: {cpu_usage}% - Memory Usage: {memory_info}%")
 
-        time.sleep(5)
+        time.sleep(60)
 
 
 async def register_user(user_id, username, callback_query):

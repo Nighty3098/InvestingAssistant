@@ -6,6 +6,7 @@ import yfinance as yf
 
 from config import home_dir, logger
 
+
 def get_stock_info(ticker):
     stock = yf.Ticker(ticker)
 
@@ -28,12 +29,12 @@ def create_connection():
 
     if not os.path.exists(tech_support_dir):
         os.makedirs(tech_support_dir)
-        logger.info(f"Created directory: {tech_support_dir}")
+        logger.debug(f"Created directory: {tech_support_dir}")
 
     db_path = os.path.join(tech_support_dir, "IPSA.db")
     try:
         connection = sqlite3.connect(db_path)
-        logger.info(f"Connected to SQL DB at {db_path}")
+        logger.debug(f"Connected to SQL DB at {db_path}")
         return connection
     except Exception as e:
         logger.error(f"Error '{e}' while connecting to SQL DB at {db_path}")
@@ -234,6 +235,7 @@ def id_by_user_id(user_id):
     finally:
         conn.close()
 
+
 def add_city_to_db(user_id, city):
     conn = create_connection()
     cursor = conn.cursor()
@@ -255,6 +257,7 @@ def add_city_to_db(user_id, city):
         return False
     finally:
         conn.close()
+
 
 def get_city_from_db(user_id):
     conn = create_connection()

@@ -50,7 +50,6 @@ async def start(client, message):
             )
 
             start_parsing_thread(user_id)
-            start_monitoring_thread()
 
         else:
             photo_path = "resources/header.png"
