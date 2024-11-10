@@ -14,7 +14,7 @@ from db import (add_city_to_db, add_stock_to_db, check_user_account,
                 update_stock_quantity)
 from func import (log_resource_usage, notify_user, process_adding_stocks,
                   process_removing_stocks, register_user,
-                  start_monitoring_thread, start_parsing_thread)
+                  start_monitoring_thread, start_parsing_thread, start_price_monitor_thread)
 from kb_builder.user_panel import (back_kb, back_stocks_kb, main_kb,
                                    register_user_kb, stocks_management_kb)
 from parsing import (check_new_articles, parse_investing_news,
@@ -50,10 +50,11 @@ async def start(client, message):
             )
 
             start_parsing_thread(user_id)
+            start_price_monitor_thread(user_id)
 
         else:
             photo_path = "resources/header.png"
-            logger.info(f"New User: {user_id} - {username}")
+            logger.info(f"New User: {user_id} - {username} on registering")
             await app.send_photo(
                 photo=photo_path,
                 chat_id=user_id,
@@ -103,8 +104,10 @@ async def answer(client, callback_query):
         if data == "add_stocks":
             logger.info(f"add_stocks: {user_id} - {username}")
             user_states[user_id] = "adding"
+            stocks_message = get_users_stocks(create_connection(), user_id)
+            message = add_asset_request + stocks_message
             await callback_query.message.edit_text(
-                add_asset_request,
+                message,
                 parse_mode=enums.ParseMode.MARKDOWN,
                 reply_markup=back_stocks_kb,
             )
@@ -112,8 +115,10 @@ async def answer(client, callback_query):
         if data == "remove_stocks":
             logger.info(f"remove_stocks: {user_id} - {username}")
             user_states[user_id] = "removing"
+            stocks_message = get_users_stocks(create_connection(), user_id)
+            message = remove_asset_request + stocks_message
             await callback_query.message.edit_text(
-                remove_asset_request,
+                message,
                 parse_mode=enums.ParseMode.MARKDOWN,
                 reply_markup=back_stocks_kb,
             )
