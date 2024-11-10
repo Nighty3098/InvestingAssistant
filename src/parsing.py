@@ -21,14 +21,14 @@ links = [
     "https://ru.investing.com/news/economy/",
     "https://ru.investing.com/news/cryptocurrency-news/",
     "https://ru.investing.com/news/economic-indicators/",
-    "https://www.investing.com/news/",
-    "https://www.investing.com/news/forex-news/",
-    "https://www.investing.com/news/commodities-news/",
-    "https://www.investing.com/news/stock-market-news/",
-    "https://www.investing.com/news/economic-indicators/",
-    "https://www.investing.com/news/economy/",
-    "https://www.investing.com/news/cryptocurrency-news/",
-    "https://www.investing.com/news/economic-indicators/",
+    # "https://www.investing.com/news/",
+    # "https://www.investing.com/news/forex-news/",
+    # "https://www.investing.com/news/commodities-news/",
+    # "https://www.investing.com/news/stock-market-news/",
+    # "https://www.investing.com/news/economic-indicators/",
+    # "https://www.investing.com/news/economy/",
+    # "https://www.investing.com/news/cryptocurrency-news/",
+    # "https://www.investing.com/news/economic-indicators/",
 ]
 
 
@@ -82,7 +82,7 @@ def parse_investing_news(url, period, user_id):
                     date, period, user_id
                 ):
                     seen_articles.add(unique_identifier)
-                    result_string = f"\n\n🔥 **{title}**\n\n🌊 **{about}**\n\n✨ __{article_url}__\n\n📆 __{to_local(timezone, date)}__\n\n😁 __{author}__"
+                    result_string = f"\n\n🔥 **{title}**\n\n🌊 **{about}**\n\n✨ __{article_url}__\n\n📆 __{to_local(timezone, date)} (Moscow)__"
                     logger.debug(f"Adding {article_url} - {title} to results")
                     results.append(result_string)
 
@@ -113,7 +113,7 @@ async def check_new_articles(user_id):
     while True:
         for link in links:
             logger.info("Parsing: " + link)
-            articles = parse_investing_news(link, "10 minutes", user_id)
+            articles = parse_investing_news(link, "1 minutes", user_id)
             for article in articles:
                 if article not in seen_articles:
                     logger.debug(f"Added to seen articles: {article}")
@@ -121,7 +121,7 @@ async def check_new_articles(user_id):
                     await notify_user(user_id, article)
 
         logger.info("Sleeping...")
-        await asyncio.sleep(3600 / 6)
+        await asyncio.sleep(3600 / 60)
 
 
 def run_check_new_articles(user_id):

@@ -99,18 +99,37 @@ def registering_user(connection, user_id, username):
         cursor = connection.cursor()
 
         cursor.execute(
-            "INSERT INTO users (user_id, username) VALUES (?, ?)",
-            (user_id, username),
+            "INSERT INTO users (user_id, username, city) VALUES (?, ?, ?)",
+            (user_id, username, "Europe/Moscow"),
         )
 
         connection.commit()
 
         cursor.close()
 
-        logger.info(f"Registered new user: {username} ({user_id})")
+        logger.warning(f"Registered new user: {username} ({user_id})")
     except Exception as e:
         logger.error(f"Error '{e}' while registering user")
 
+
+def get_stocks(connection, user_id):
+    cursor = connection.cursor()
+    
+    cursor.execute(
+        "SELECT stock_name, quantity FROM stocks WHERE user_id=?", (user_id,)
+    )
+    rows = cursor.fetchall()
+
+    stock_prices = {}
+    
+    for row in rows:
+        stock_name = row[0]
+        stock_price = get_stock_info(stock_name)[1]
+        stock_prices[stock_name] = stock_price
+
+        logger.debug(f"{user_id}: {stock_name} - {stock_price}")
+
+    return stock_prices
 
 def get_users_stocks(connection, user_id):
     response_message = ""

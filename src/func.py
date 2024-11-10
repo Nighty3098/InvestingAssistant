@@ -18,8 +18,23 @@ from db import (add_stock_to_db, check_user_account, create_connection,
 from kb_builder.user_panel import main_kb
 from resources.messages import WELCOME_MESSAGE, register_message
 
-user_threads = {}
+user_price_thread = {}
+user_parse_thread = {}
 
+def check_stock_prices(user_id):
+    from db import get_stocks, get_stock_info
+    
+    while True:
+        stock_prices = get_stocks(create_connection(), user_id)
+        logger.debug(stock_prices)
+
+        for stock_name in stock_prices.keys():
+            current_price = get_stock_info(stock_name)[1]
+            if current_price != stock_prices[stock_name]:
+                logger.info(f"Message for {user_id}: Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}")
+                app.send_message(user_id, f"Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}", parse_mode=enums.ParseMode.MARKDOWN)
+                stock_prices[stock_name] = current_price 
+        time.sleep(5)
 
 def start_monitoring_thread():
     try:
@@ -30,21 +45,35 @@ def start_monitoring_thread():
     except Exception as e:
         logger.error(f"Error in start_monitoring_thread: {e}")
 
+def start_price_monitor_thread(user_id: str):
+    try:
+        if user_id in user_price_thread:
+            logger.info(f"Price thread already running for user ID: {user_id}. Skipped...")
+        else:
+            price_thread = threading.Thread(target=check_stock_prices, args=(user_id,))
+            price_thread.daemon = True
+            price_thread.start()
+
+            user_price_thread[user_id] = price_thread
+
+            logger.info(f"Started price thread for checking new articles for user ID: {user_id}")
+    except Exception as e:
+        logger.error(f"Error in start_parsing_thread: {e}")
 
 def start_parsing_thread(user_id: str):
     try:
         from parsing import run_check_new_articles
 
-        if user_id in user_threads:
-            logger.info(f"Thread already running for user ID: {user_id}. Restarting...")
+        if user_id in user_parse_thread:
+            logger.info(f"Thread already running for user ID: {user_id}. Skipped...")
+        else:
+            thread = threading.Thread(target=run_check_new_articles, args=(user_id,))
+            thread.daemon = True
+            thread.start()
 
-        thread = threading.Thread(target=run_check_new_articles, args=(user_id,))
-        thread.daemon = True
-        thread.start()
+            user_parse_thread[user_id] = thread
 
-        user_threads[user_id] = thread
-
-        logger.info(f"Started thread for checking new articles for user ID: {user_id}")
+            logger.info(f"Started thread for checking new articles for user ID: {user_id}")
     except Exception as e:
         logger.error(f"Error in start_parsing_thread: {e}")
 
@@ -252,3 +281,5 @@ async def process_removing_stocks(client, message, user_id):
                 await client.send_message(
                     message.chat.id, "Failed to delete the asset."
                 )
+
+
