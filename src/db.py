@@ -155,7 +155,7 @@ def get_users_stocks(connection, user_id):
                 if stock_price == "Price not found":
                     stock_price = 0
 
-                response_message += f"🚀 **{row[0]} - {stock_name} - {stock_price}$**\n__💵 {row[1]} = {float(row[1]) * float(stock_price)}$__\n\n"
+                response_message += f"🚀 **{row[0]} - {stock_name} - {stock_price}$**\n__💵 {row[1]} = {round(float(row[1]) * float(stock_price), 2)}$__\n\n"
                 logger.info(
                     f"Stocks: {row[0]} - {stock_name} - {stock_price}$: {row[1]} = {float(row[1]) * float(stock_price)}"
                 )
