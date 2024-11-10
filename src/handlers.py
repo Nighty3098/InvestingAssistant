@@ -104,8 +104,10 @@ async def answer(client, callback_query):
         if data == "add_stocks":
             logger.info(f"add_stocks: {user_id} - {username}")
             user_states[user_id] = "adding"
+            stocks_message = get_users_stocks(create_connection(), user_id)
+            message = add_asset_request + stocks_message
             await callback_query.message.edit_text(
-                add_asset_request,
+                message,
                 parse_mode=enums.ParseMode.MARKDOWN,
                 reply_markup=back_stocks_kb,
             )
@@ -113,8 +115,10 @@ async def answer(client, callback_query):
         if data == "remove_stocks":
             logger.info(f"remove_stocks: {user_id} - {username}")
             user_states[user_id] = "removing"
+            stocks_message = get_users_stocks(create_connection(), user_id)
+            message = remove_asset_request + stocks_message
             await callback_query.message.edit_text(
-                remove_asset_request,
+                message,
                 parse_mode=enums.ParseMode.MARKDOWN,
                 reply_markup=back_stocks_kb,
             )
