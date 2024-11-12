@@ -4,7 +4,6 @@ import threading
 import time
 from datetime import datetime, timedelta
 
-import investpy
 import psutil
 import pytz
 import requests
