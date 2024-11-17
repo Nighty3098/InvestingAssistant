@@ -6,7 +6,6 @@ import yfinance as yf
 
 from config import home_dir, logger
 
-
 def get_stock_info(ticker):
     stock = yf.Ticker(ticker)
 
@@ -16,7 +15,6 @@ def get_stock_info(ticker):
     stock_price = stock_info.get("currentPrice", "Price not found")
 
     return stock_name, stock_price
-
 
 def get_promo_by_code(ticker):
     stock = yf.Ticker(ticker)
@@ -130,6 +128,34 @@ def get_stocks(connection, user_id):
         logger.debug(f"{user_id}: {stock_name} - {stock_price}")
 
     return stock_prices
+
+def get_stocks_list(connection, user_id):
+    cursor = connection.cursor()
+    
+    cursor.execute(
+        "SELECT stock_name, quantity FROM stocks WHERE user_id=?", (user_id,)
+    )
+    rows = cursor.fetchall()
+
+    return [(row[0], row[1]) for row in rows]
+
+def process_stocks(connection, user_id):
+    stocks_data = get_stocks_list(connection, user_id)
+    
+    stocks_info_list = []
+
+    for ticker, quantity in stocks_data:
+        stock_name, stock_price = get_stock_info(ticker)
+        
+        stocks_info_list.append({
+            'ticker': ticker,
+            'quantity': quantity,
+            'name': stock_name,
+            'price': stock_price
+        })
+
+    return stocks_info_list
+
 
 def get_users_stocks(connection, user_id):
     response_message = ""
