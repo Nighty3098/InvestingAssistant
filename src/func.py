@@ -11,18 +11,58 @@ import yfinance as yf
 from pyrogram import enums
 
 from config import app, logger
-from db import (add_stock_to_db, check_user_account, create_connection,
-                get_city_from_db, get_users_stocks, registering_user,
-                remove_stock_from_db, update_stock_quantity)
+from db import (
+    add_stock_to_db,
+    check_user_account,
+    create_connection,
+    get_city_from_db,
+    get_users_stocks,
+    registering_user,
+    remove_stock_from_db,
+    update_stock_quantity,
+)
 from kb_builder.user_panel import main_kb
 from resources.messages import WELCOME_MESSAGE, register_message
 
 user_price_thread = {}
 user_parse_thread = {}
 
+
+def get_time_difference(document_date, timezone):
+    current_time = datetime.now()
+
+    if isinstance(timezone, tuple):
+        timezone = timezone[0]
+
+    new_user_time_str = convert_to_utc(
+        timezone, current_time.strftime("%Y-%m-%d %H:%M:%S")
+    )
+
+    new_user_time = datetime.strptime(new_user_time_str, "%Y-%m-%d %H:%M:%S")
+    input_date = datetime.strptime(document_date, "%Y-%m-%d %H:%M:%S")
+    time_difference = abs(new_user_time - input_date)
+
+    days = time_difference.days
+    hours, remainder = divmod(time_difference.seconds, 3600)
+    minutes, _ = divmod(remainder, 60)
+
+    time_parts = []
+    if days > 0:
+        time_parts.append(f"{days} day{'s' if days > 1 else ''} ago")
+    if hours > 0:
+        time_parts.append(f"{hours} hour{'s' if hours > 1 else ''} ago")
+    if minutes > 0:
+        time_parts.append(f"{minutes} minute{'s' if minutes > 1 else ''} ago")
+
+    if not time_parts:
+        return "just now"
+
+    return ", ".join(time_parts)
+
+
 def check_stock_prices(user_id):
     from db import get_stocks, get_stock_info
-    
+
     while True:
         stock_prices = get_stocks(create_connection(), user_id)
         logger.debug(stock_prices)
@@ -30,10 +70,17 @@ def check_stock_prices(user_id):
         for stock_name in stock_prices.keys():
             current_price = get_stock_info(stock_name)[1]
             if current_price != stock_prices[stock_name]:
-                logger.info(f"Message for {user_id}: Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}")
-                app.send_message(user_id, f"Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}", parse_mode=enums.ParseMode.MARKDOWN)
-                stock_prices[stock_name] = current_price 
+                logger.info(
+                    f"Message for {user_id}: Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}"
+                )
+                app.send_message(
+                    user_id,
+                    f"Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}",
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                )
+                stock_prices[stock_name] = current_price
         time.sleep(5)
+
 
 def start_monitoring_thread():
     try:
@@ -44,10 +91,13 @@ def start_monitoring_thread():
     except Exception as e:
         logger.error(f"Error in start_monitoring_thread: {e}")
 
+
 def start_price_monitor_thread(user_id: str):
     try:
         if user_id in user_price_thread:
-            logger.info(f"Price thread already running for user ID: {user_id}. Skipped...")
+            logger.info(
+                f"Price thread already running for user ID: {user_id}. Skipped..."
+            )
         else:
             price_thread = threading.Thread(target=check_stock_prices, args=(user_id,))
             price_thread.daemon = True
@@ -55,9 +105,12 @@ def start_price_monitor_thread(user_id: str):
 
             user_price_thread[user_id] = price_thread
 
-            logger.info(f"Started price thread for checking new articles for user ID: {user_id}")
+            logger.info(
+                f"Started price thread for checking new articles for user ID: {user_id}"
+            )
     except Exception as e:
         logger.error(f"Error in start_parsing_thread: {e}")
+
 
 def start_parsing_thread(user_id: str):
     try:
@@ -72,7 +125,9 @@ def start_parsing_thread(user_id: str):
 
             user_parse_thread[user_id] = thread
 
-            logger.info(f"Started thread for checking new articles for user ID: {user_id}")
+            logger.info(
+                f"Started thread for checking new articles for user ID: {user_id}"
+            )
     except Exception as e:
         logger.error(f"Error in start_parsing_thread: {e}")
 
@@ -280,5 +335,3 @@ async def process_removing_stocks(client, message, user_id):
                 await client.send_message(
                     message.chat.id, "Failed to delete the asset."
                 )
-
-

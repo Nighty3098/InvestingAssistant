@@ -26,7 +26,7 @@ try:
         api_id=API_ID,
         api_hash=API_HASH,
         bot_token=BOT_TOKEN,
-        in_memory=False
+        in_memory=False,
     )
 except Exception as e:
     raise RuntimeError(f"Failed to initialize the Pyrogram Client: {e}")
@@ -37,7 +37,7 @@ try:
     logger.add(
         log_file,
         level="DEBUG",
-        rotation="100 MB",
+        rotation="100000 MB",
         retention="30 days",
         compression="zip",
         backtrace=True,
