@@ -1,7 +1,7 @@
 <div align="center">
     <h1>🌊 IPSA</h1>
     <br>
-    <img src="header.png" width="90%" />
+    <img src="header.png" />
     <br><br>
     <img src="https://github.com/Nighty3098/DevIcons/blob/main/badges/badges_python.png?raw=true" width="50" height="50" />
     <img src="https://github.com/Nighty3098/DevIcons/blob/main/badges/badges_telegram.png?raw=true" width="50" height="50" />
@@ -38,7 +38,12 @@ BOT_TOKEN = ""
 python3 main.py
 ```
 
-<br><br><br>
+<div align="center">
+<br><br>
+<h1>ROADMAP</h1>
+<img src="https://github.com/user-attachments/assets/8d916dca-d17e-481c-967e-24b3bbd71468" />
+<br>
+</div>
 
 <div align="center">
 <details>
