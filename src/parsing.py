@@ -8,15 +8,10 @@ import requests
 from user_agent import generate_user_agent
 
 from config import app, logger
-from db import create_connection, get_city_from_db, get_stocks_list, process_stocks
-from func import (
-    convert_to_utc,
-    get_time_difference,
-    is_within_period,
-    notify_user,
-    parse_time_period,
-    to_local,
-)
+from db import (create_connection, get_city_from_db, get_stocks_list,
+                process_stocks)
+from func import (convert_to_utc, get_time_difference, is_within_period,
+                  notify_user, parse_time_period, to_local)
 
 links = [
     "https://ru.investing.com/news/",
@@ -156,12 +151,10 @@ def parse_investing_news(url, period, user_id):
                     seen_articles.add(unique_identifier)
                     time_difference = get_time_difference(date, timezone)
 
-                    if is_stocks_in_news(article_url, user_id, title, about):
-                        result_string = f"\n\n🔥 **{title}**\n\n🌊 **{about}**\n\n✨ __{article_url}__\n\n📆 __{to_local(timezone, date)}__\n\n**{time_difference}**"
-                        logger.debug(f"Adding {article_url} - {title} to results")
-                        results.append(result_string)
-                    else:
-                        pass
+                    result_string = f"\n\n🔥 **{title}**\n\n🌊 **{about}**\n\n✨ __{article_url}__\n\n📆 __{to_local(timezone, date)}__\n\n**{time_difference}**"
+                    logger.debug(f"Adding {article_url} - {title} to results")
+                    results.append(result_string)
+
             except Exception as e:
                 logger.error(f"Error processing article: {e}")
         return results

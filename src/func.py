@@ -11,16 +11,9 @@ import yfinance as yf
 from pyrogram import enums
 
 from config import app, logger
-from db import (
-    add_stock_to_db,
-    check_user_account,
-    create_connection,
-    get_city_from_db,
-    get_users_stocks,
-    registering_user,
-    remove_stock_from_db,
-    update_stock_quantity,
-)
+from db import (add_stock_to_db, check_user_account, create_connection,
+                get_city_from_db, get_users_stocks, registering_user,
+                remove_stock_from_db, update_stock_quantity)
 from kb_builder.user_panel import main_kb
 from resources.messages import WELCOME_MESSAGE, register_message
 
@@ -60,26 +53,40 @@ def get_time_difference(document_date, timezone):
     return ", ".join(time_parts)
 
 
-def check_stock_prices(user_id):
-    from db import get_stocks, get_stock_info
+async def check_stock_prices(user_id):
+    from db import get_stock_info, get_stocks
 
-    while True:
-        stock_prices = get_stocks(create_connection(), user_id)
-        logger.debug(stock_prices)
+    try:
+        while True:
+            stock_prices = get_stocks(create_connection(), user_id)
+            logger.debug(f"Old stock prices: {stock_prices}")
 
-        for stock_name in stock_prices.keys():
-            current_price = get_stock_info(stock_name)[1]
-            if current_price != stock_prices[stock_name]:
-                logger.info(
-                    f"Message for {user_id}: Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}"
-                )
-                app.send_message(
-                    user_id,
-                    f"Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}",
-                    parse_mode=enums.ParseMode.MARKDOWN,
-                )
-                stock_prices[stock_name] = current_price
-        time.sleep(5)
+            for stock_name in stock_prices.keys():
+                current_price = get_stock_info(stock_name)[1]
+                if current_price != stock_prices[stock_name]:
+                    if current_price < stock_prices[stock_name]:
+                        label = "🔴"
+                    if current_price > stock_prices[stock_name]:
+                        label = "🟢"
+                    else:
+                        label = "🟡"
+
+                    logger.info(
+                        f"New message for {user_id}: Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}"
+                    )
+                    await app.send_message(
+                        user_id,
+                        f"{label} Update stock price: {stock_name}\nOld: {stock_prices[stock_name]}\nNew: {current_price}",
+                        parse_mode=enums.ParseMode.MARKDOWN,
+                    )
+
+                    stock_prices[stock_name] = current_price
+                    logger.info(
+                        f"Updated old stock price from {stock_prices[stock_name]} to {current_price}"
+                    )
+            time.sleep(5)
+    except Exception as e:
+        logger.error(f"Error while checking stock prices: {e}")
 
 
 def start_monitoring_thread():
@@ -92,14 +99,14 @@ def start_monitoring_thread():
         logger.error(f"Error in start_monitoring_thread: {e}")
 
 
-def start_price_monitor_thread(user_id: str):
+async def start_price_monitor_thread(user_id: str):
     try:
         if user_id in user_price_thread:
             logger.info(
                 f"Price thread already running for user ID: {user_id}. Skipped..."
             )
         else:
-            price_thread = threading.Thread(target=check_stock_prices, args=(user_id,))
+            price_thread = threading.Thread(target=await check_stock_prices, args=(user_id,))
             price_thread.daemon = True
             price_thread.start()
 
