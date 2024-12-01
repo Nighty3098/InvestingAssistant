@@ -8,9 +8,15 @@ import requests
 from user_agent import generate_user_agent
 
 from config import app, logger
-from db import get_city_from_db, get_stocks_list, create_connection, process_stocks
-from func import (convert_to_utc, is_within_period, notify_user,
-                  parse_time_period, to_local)
+from db import create_connection, get_city_from_db, get_stocks_list, process_stocks
+from func import (
+    convert_to_utc,
+    get_time_difference,
+    is_within_period,
+    notify_user,
+    parse_time_period,
+    to_local,
+)
 
 links = [
     "https://ru.investing.com/news/",
@@ -21,32 +27,34 @@ links = [
     "https://ru.investing.com/news/economy/",
     "https://ru.investing.com/news/cryptocurrency-news/",
     "https://ru.investing.com/news/economic-indicators/",
-    "https://www.investing.com/news/",
-    "https://www.investing.com/news/forex-news/",
-    "https://www.investing.com/news/commodities-news/",
-    "https://www.investing.com/news/stock-market-news/",
-    "https://www.investing.com/news/economic-indicators/",
-    "https://www.investing.com/news/economy/",
-    "https://www.investing.com/news/cryptocurrency-news/",
-    "https://www.investing.com/news/economic-indicators/",
+    # "https://www.investing.com/news/",
+    # "https://www.investing.com/news/forex-news/",
+    # "https://www.investing.com/news/commodities-news/",
+    # "https://www.investing.com/news/stock-market-news/",
+    # "https://www.investing.com/news/economic-indicators/",
+    # "https://www.investing.com/news/economy/",
+    # "https://www.investing.com/news/cryptocurrency-news/",
+    # "https://www.investing.com/news/economic-indicators/",
 ]
 
 
-def is_stocks_in_news(url, user_id):
+def is_stocks_in_news(url, user_id, document_title, document_pre_text):
     headers = {"User-Agent": generate_user_agent()}
     logger.debug(f"Generate user agent: {headers}")
 
     try:
         stocks_info = process_stocks(create_connection(), user_id)
-        tickets_with_company = [(stock['ticker'], stock['name']) for stock in stocks_info]
+        tickets_with_company = [
+            (stock["ticker"], stock["name"]) for stock in stocks_info
+        ]
 
         response = requests.get(url, headers=headers)
         response.raise_for_status()
 
         html = response.text
         soup = bs4.BeautifulSoup(html, "html.parser")
-        
-        title_element = soup.find('h1')
+
+        title_element = soup.find("h1")
         if title_element:
             title = title_element.text.strip()
             logger.info(f"Title: {title}")
@@ -54,7 +62,7 @@ def is_stocks_in_news(url, user_id):
             logger.warning("Title element not found.")
             title = ""
 
-        date_element = soup.find('time')
+        date_element = soup.find("time")
         if date_element:
             date = date_element.text.strip()
             logger.info(f"Date: {date}")
@@ -62,8 +70,8 @@ def is_stocks_in_news(url, user_id):
             logger.warning("Date element not found.")
             date = ""
 
-        paragraphs = soup.find_all('p')
-        article_text = '\n'.join([para.text for para in paragraphs if para.text])
+        paragraphs = soup.find_all("p")
+        article_text = "\n".join([para.text for para in paragraphs if para.text])
 
         tickers = [company[0] for company in tickets_with_company]
         company_names = [company[1] for company in tickets_with_company]
@@ -94,6 +102,8 @@ def is_stocks_in_news(url, user_id):
         return False
 
     return False
+
+
 def parse_investing_news(url, period, user_id):
     """Investing.com parser."""
 
@@ -144,15 +154,16 @@ def parse_investing_news(url, period, user_id):
                     date, period, user_id
                 ):
                     seen_articles.add(unique_identifier)
-                    if (is_stocks_in_news(article_url, user_id)):
-                        result_string = f"\n\n🔥 **{title}**\n\n🌊 **{about}**\n\n✨ __{article_url}__\n\n📆 __{to_local(timezone, date)} (Moscow)__"
+                    time_difference = get_time_difference(date, timezone)
+
+                    if is_stocks_in_news(article_url, user_id, title, about):
+                        result_string = f"\n\n🔥 **{title}**\n\n🌊 **{about}**\n\n✨ __{article_url}__\n\n📆 __{to_local(timezone, date)}__\n\n**{time_difference}**"
                         logger.debug(f"Adding {article_url} - {title} to results")
                         results.append(result_string)
                     else:
                         pass
             except Exception as e:
                 logger.error(f"Error processing article: {e}")
-
         return results
 
     except requests.exceptions.RequestException as e:

@@ -6,6 +6,7 @@ import yfinance as yf
 
 from config import home_dir, logger
 
+
 def get_stock_info(ticker):
     stock = yf.Ticker(ticker)
 
@@ -15,6 +16,7 @@ def get_stock_info(ticker):
     stock_price = stock_info.get("currentPrice", "Price not found")
 
     return stock_name, stock_price
+
 
 def get_promo_by_code(ticker):
     stock = yf.Ticker(ticker)
@@ -98,7 +100,7 @@ def registering_user(connection, user_id, username):
 
         cursor.execute(
             "INSERT INTO users (user_id, username, city) VALUES (?, ?, ?)",
-            (user_id, username, "Europe/Moscow"),
+            (user_id, username, "Asia/Novosibirsk"),
         )
 
         connection.commit()
@@ -112,14 +114,14 @@ def registering_user(connection, user_id, username):
 
 def get_stocks(connection, user_id):
     cursor = connection.cursor()
-    
+
     cursor.execute(
         "SELECT stock_name, quantity FROM stocks WHERE user_id=?", (user_id,)
     )
     rows = cursor.fetchall()
 
     stock_prices = {}
-    
+
     for row in rows:
         stock_name = row[0]
         stock_price = get_stock_info(stock_name)[1]
@@ -129,9 +131,10 @@ def get_stocks(connection, user_id):
 
     return stock_prices
 
+
 def get_stocks_list(connection, user_id):
     cursor = connection.cursor()
-    
+
     cursor.execute(
         "SELECT stock_name, quantity FROM stocks WHERE user_id=?", (user_id,)
     )
@@ -139,20 +142,23 @@ def get_stocks_list(connection, user_id):
 
     return [(row[0], row[1]) for row in rows]
 
+
 def process_stocks(connection, user_id):
     stocks_data = get_stocks_list(connection, user_id)
-    
+
     stocks_info_list = []
 
     for ticker, quantity in stocks_data:
         stock_name, stock_price = get_stock_info(ticker)
-        
-        stocks_info_list.append({
-            'ticker': ticker,
-            'quantity': quantity,
-            'name': stock_name,
-            'price': stock_price
-        })
+
+        stocks_info_list.append(
+            {
+                "ticker": ticker,
+                "quantity": quantity,
+                "name": stock_name,
+                "price": stock_price,
+            }
+        )
 
     return stocks_info_list
 
