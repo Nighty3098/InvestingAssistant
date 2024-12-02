@@ -1,3 +1,4 @@
+import asyncio
 import os
 import re
 import threading
@@ -11,14 +12,37 @@ import yfinance as yf
 from pyrogram import enums
 
 from config import app, logger
-from db import (add_stock_to_db, check_user_account, create_connection,
-                get_city_from_db, get_users_stocks, registering_user,
-                remove_stock_from_db, update_stock_quantity)
+from db import (
+    add_stock_to_db,
+    check_user_account,
+    create_connection,
+    get_city_from_db,
+    get_users_stocks,
+    registering_user,
+    remove_stock_from_db,
+    update_stock_quantity,
+)
 from kb_builder.user_panel import main_kb
 from resources.messages import WELCOME_MESSAGE, register_message
 
 user_price_thread = {}
 user_parse_thread = {}
+
+
+def is_string(value):
+    return isinstance(value, str)
+
+
+def is_integer(value):
+    return str(value).isdigit()
+
+
+def is_float(value):
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
 
 
 def get_time_difference(document_date, timezone):
@@ -56,21 +80,24 @@ def get_time_difference(document_date, timezone):
 async def check_stock_prices(user_id):
     from db import get_stock_info, get_stocks
 
-    try:
-        while True:
-            stock_prices = get_stocks(create_connection(), user_id)
-            logger.debug(f"Old stock prices: {stock_prices}")
+    while True:
+        stock_prices = get_stocks(create_connection(), user_id)
+        logger.debug(f"Old stock prices: {stock_prices}")
 
-            for stock_name in stock_prices.keys():
-                current_price = get_stock_info(stock_name)[1]
-                if current_price != stock_prices[stock_name]:
-                    if current_price < stock_prices[stock_name]:
+        for stock_name in stock_prices.keys():
+            current_price = get_stock_info(stock_name)[1]
+            if is_string(current_price):
+                logger.error(
+                    f"Error getting stock price for: {stock_name} {current_price}"
+                )
+            else:
+                if float(current_price) != float(stock_prices[stock_name]):
+                    if float(current_price) < float(stock_prices[stock_name]):
                         label = "🔴"
-                    if current_price > stock_prices[stock_name]:
+                    if float(current_price) > float(stock_prices[stock_name]):
                         label = "🟢"
                     else:
                         label = "🟡"
-
                     logger.info(
                         f"New message for {user_id}: Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}"
                     )
@@ -79,14 +106,13 @@ async def check_stock_prices(user_id):
                         f"{label} Update stock price: {stock_name}\nOld: {stock_prices[stock_name]}\nNew: {current_price}",
                         parse_mode=enums.ParseMode.MARKDOWN,
                     )
-
-                    stock_prices[stock_name] = current_price
+                    stock_prices[stock_name] = str(current_price)
                     logger.info(
                         f"Updated old stock price from {stock_prices[stock_name]} to {current_price}"
                     )
-            time.sleep(5)
-    except Exception as e:
-        logger.error(f"Error while checking stock prices: {e}")
+                else:
+                    pass
+        time.sleep(10)
 
 
 def start_monitoring_thread():
@@ -99,14 +125,30 @@ def start_monitoring_thread():
         logger.error(f"Error in start_monitoring_thread: {e}")
 
 
-async def start_price_monitor_thread(user_id: str):
+def create_price_loop(user_id: str):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(check_stock_prices(user_id))
+    loop.close()
+
+
+def create_article_loop(user_id: str):
+    from parsing import run_check_new_articles
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(run_check_new_articles(user_id))
+    loop.close()
+
+
+def start_price_monitor_thread(user_id: str):
     try:
         if user_id in user_price_thread:
             logger.info(
                 f"Price thread already running for user ID: {user_id}. Skipped..."
             )
         else:
-            price_thread = threading.Thread(target=await check_stock_prices, args=(user_id,))
+            price_thread = threading.Thread(target=create_price_loop, args=(user_id,))
             price_thread.daemon = True
             price_thread.start()
 
@@ -117,16 +159,16 @@ async def start_price_monitor_thread(user_id: str):
             )
     except Exception as e:
         logger.error(f"Error in start_parsing_thread: {e}")
+    finally:
+        pass
 
 
 def start_parsing_thread(user_id: str):
     try:
-        from parsing import run_check_new_articles
-
         if user_id in user_parse_thread:
             logger.info(f"Thread already running for user ID: {user_id}. Skipped...")
         else:
-            thread = threading.Thread(target=run_check_new_articles, args=(user_id,))
+            thread = threading.Thread(target=create_article_loop, args=(user_id,))
             thread.daemon = True
             thread.start()
 
@@ -266,6 +308,8 @@ async def register_user(user_id, username, callback_query):
             logger.info(f"User {user_id} - {username} registered")
 
             start_parsing_thread(user_id)
+            start_price_monitor_thread(user_id)
+
         else:
             await callback_query.message.edit_text(
                 "**Error while registering user. Try again later**",

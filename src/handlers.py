@@ -6,25 +6,53 @@ from threading import Thread
 
 from pyrogram import Client, enums, filters
 
-from config import (API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file,
-                    logger)
-from db import (add_city_to_db, add_stock_to_db, check_user_account,
-                create_connection, create_table, create_users_table,
-                get_users_stocks, registering_user, remove_stock_from_db,
-                update_stock_quantity)
-from func import (log_resource_usage, notify_user, process_adding_stocks,
-                  process_removing_stocks, register_user,
-                  start_monitoring_thread, start_parsing_thread,
-                  start_price_monitor_thread)
-from kb_builder.user_panel import (back_kb, back_stocks_kb, main_kb,
-                                   register_user_kb, stocks_management_kb)
-from parsing import (check_new_articles, parse_investing_news,
-                     run_check_new_articles, start_parsing)
-from resources.messages import (ASSETS_MESSAGE, WELCOME_MESSAGE,
-                                add_asset_request, collect_data,
-                                get_news_period, get_users_city,
-                                not_register_message, register_message,
-                                remove_asset_request)
+from config import API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file, logger
+from db import (
+    add_city_to_db,
+    add_stock_to_db,
+    check_user_account,
+    create_connection,
+    create_table,
+    create_users_table,
+    get_users_stocks,
+    registering_user,
+    remove_stock_from_db,
+    update_stock_quantity,
+)
+from func import (
+    log_resource_usage,
+    notify_user,
+    process_adding_stocks,
+    process_removing_stocks,
+    register_user,
+    start_monitoring_thread,
+    start_parsing_thread,
+    start_price_monitor_thread,
+)
+from kb_builder.user_panel import (
+    back_kb,
+    back_stocks_kb,
+    main_kb,
+    register_user_kb,
+    stocks_management_kb,
+)
+from parsing import (
+    check_new_articles,
+    parse_investing_news,
+    run_check_new_articles,
+    start_parsing,
+)
+from resources.messages import (
+    ASSETS_MESSAGE,
+    WELCOME_MESSAGE,
+    add_asset_request,
+    collect_data,
+    get_news_period,
+    get_users_city,
+    not_register_message,
+    register_message,
+    remove_asset_request,
+)
 
 user_states = {}
 
@@ -51,7 +79,7 @@ async def start(client, message):
             )
 
             start_parsing_thread(user_id)
-            await start_price_monitor_thread(user_id)
+            start_price_monitor_thread(user_id)
 
         else:
             photo_path = "resources/header.png"
