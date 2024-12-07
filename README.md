@@ -7,17 +7,21 @@
     <img src="https://github.com/Nighty3098/DevIcons/blob/main/badges/badges_telegram.png?raw=true" width="50" height="50" />
     <br><br>
     <a href="https://t.me/DXS_TechSupport_bot"><img src="https://github.com/Nighty3098/DevIcons/blob/main/badges/badges_TechSupport.png?raw=true" height="35px"/></a>
-    <a href="https://discord.gg/tnHSEc2cZv"><img src="https://github.com/Nighty3098/DevIcons/blob/main/badges/badges_discord_server.png?raw=true" height="35px" /></a>  
+    <a href="https://discord.gg/tnHSEc2cZv"><img src="https://github.com/Nighty3098/DevIcons/blob/main/badges/badges_discord_server.png?raw=true" height="35px" /></a>
 </div>
 
 <br><br><br>
 
 #### Install Poetry:
+
+
 ```
 curl -sSL https://install.python-poetry.org | python3 -
 ```
 
 #### Installing
+
+
 ```
 git clone https://github.com/Nighty3098/InvestingAssistant
 cd InvestingAssistant
@@ -27,6 +31,8 @@ cd src
 ```
 
 #### In .env file
+
+
 ```
 API_ID = ''
 API_HASH = ''
@@ -34,6 +40,8 @@ BOT_TOKEN = ""
 ```
 
 #### Run
+
+
 ```
 python3 main.py
 ```

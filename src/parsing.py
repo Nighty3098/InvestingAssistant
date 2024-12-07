@@ -8,15 +8,10 @@ import requests
 from user_agent import generate_user_agent
 
 from config import app, logger
-from db import create_connection, get_city_from_db, get_stocks_list, process_stocks
-from func import (
-    convert_to_utc,
-    get_time_difference,
-    is_within_period,
-    notify_user,
-    parse_time_period,
-    to_local,
-)
+from db import (create_connection, get_city_from_db, get_stocks_list,
+                process_stocks)
+from func import (convert_to_utc, get_time_difference, is_within_period,
+                  notify_user, parse_time_period, to_local)
 
 links = [
     "https://ru.investing.com/news/",
@@ -27,14 +22,14 @@ links = [
     "https://ru.investing.com/news/economy/",
     "https://ru.investing.com/news/cryptocurrency-news/",
     "https://ru.investing.com/news/economic-indicators/",
-    # "https://www.investing.com/news/",
-    # "https://www.investing.com/news/forex-news/",
-    # "https://www.investing.com/news/commodities-news/",
-    # "https://www.investing.com/news/stock-market-news/",
-    # "https://www.investing.com/news/economic-indicators/",
-    # "https://www.investing.com/news/economy/",
-    # "https://www.investing.com/news/cryptocurrency-news/",
-    # "https://www.investing.com/news/economic-indicators/",
+    "https://www.investing.com/news/",
+    "https://www.investing.com/news/forex-news/",
+    "https://www.investing.com/news/commodities-news/",
+    "https://www.investing.com/news/stock-market-news/",
+    "https://www.investing.com/news/economic-indicators/",
+    "https://www.investing.com/news/economy/",
+    "https://www.investing.com/news/cryptocurrency-news/",
+    "https://www.investing.com/news/economic-indicators/",
 ]
 
 
@@ -189,12 +184,13 @@ async def check_new_articles(user_id):
             articles = parse_investing_news(link, "1 minutes", user_id)
             for article in articles:
                 if article not in seen_articles:
-                    logger.debug(f"Added to seen articles: {article}")
-                    seen_articles.add(article)
                     await notify_user(user_id, article)
 
+                    logger.debug(f"Added to seen articles: {article}")
+                    seen_articles.add(article)
+
         logger.info("Sleeping...")
-        await asyncio.sleep(3600 / 60)
+        await asyncio.sleep(3600 / 600)
 
 
 def run_check_new_articles(user_id):
