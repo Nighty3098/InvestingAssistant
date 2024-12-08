@@ -4,7 +4,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 main_kb = InlineKeyboardMarkup(
     [
         [InlineKeyboardButton(text="💵 My stocks 💵", callback_data="my_stocks")],
-        [InlineKeyboardButton(text="📊 Get price 📊", callback_data="get_price")],
+        [InlineKeyboardButton(text="📊 Stock details 📊", callback_data="get_price")],
         [InlineKeyboardButton(text="📄 News 📄", callback_data="news")],
         [InlineKeyboardButton(text="🚀 Analytics 🚀", callback_data="analytics")],
         [InlineKeyboardButton(text="📆 Set time zone 📆", callback_data="set_city")],

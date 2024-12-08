@@ -13,16 +13,9 @@ import yfinance as yf
 from pyrogram import enums
 
 from config import app, logger
-from db import (
-    add_stock_to_db,
-    check_user_account,
-    create_connection,
-    get_city_from_db,
-    get_users_stocks,
-    registering_user,
-    remove_stock_from_db,
-    update_stock_quantity,
-)
+from db import (add_stock_to_db, check_user_account, create_connection,
+                get_city_from_db, get_users_stocks, registering_user,
+                remove_stock_from_db, update_stock_quantity)
 from kb_builder.user_panel import main_kb
 from resources.messages import WELCOME_MESSAGE, register_message
 
@@ -164,12 +157,12 @@ def get_time_difference(document_date, timezone):
     time_parts = []
     if days > 0:
         time_parts.append(f"{days} day{'s' if days > 1 else ''} ago")
-    if hours > 0:
+    elif hours > 0:
         time_parts.append(f"{hours} hour{'s' if hours > 1 else ''} ago")
-    if minutes > 0:
+    elif minutes > 0:
         time_parts.append(f"{minutes} minute{'s' if minutes > 1 else ''} ago")
 
-    if not time_parts:
+    elif not time_parts:
         return "just now"
 
     return ", ".join(time_parts)
@@ -192,7 +185,7 @@ async def check_stock_prices(user_id):
                 if float(current_price) != float(stock_prices[stock_name]):
                     if float(current_price) < float(stock_prices[stock_name]):
                         label = "🔴"
-                    if float(current_price) > float(stock_prices[stock_name]):
+                    elif float(current_price) > float(stock_prices[stock_name]):
                         label = "🟢"
                     else:
                         label = "🟡"
@@ -210,7 +203,7 @@ async def check_stock_prices(user_id):
                     )
                 else:
                     pass
-        time.sleep(10)
+        time.sleep(5)
 
 
 def start_monitoring_thread():
