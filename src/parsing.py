@@ -27,14 +27,14 @@ links = [
     "https://ru.investing.com/news/economy/",
     "https://ru.investing.com/news/cryptocurrency-news/",
     "https://ru.investing.com/news/economic-indicators/",
-    # "https://www.investing.com/news/",
-    # "https://www.investing.com/news/forex-news/",
-    # "https://www.investing.com/news/commodities-news/",
-    # "https://www.investing.com/news/stock-market-news/",
-    # "https://www.investing.com/news/economic-indicators/",
-    # "https://www.investing.com/news/economy/",
-    # "https://www.investing.com/news/cryptocurrency-news/",
-    # "https://www.investing.com/news/economic-indicators/",
+    "https://www.investing.com/news/",
+    "https://www.investing.com/news/forex-news/",
+    "https://www.investing.com/news/commodities-news/",
+    "https://www.investing.com/news/stock-market-news/",
+    "https://www.investing.com/news/economic-indicators/",
+    "https://www.investing.com/news/economy/",
+    "https://www.investing.com/news/cryptocurrency-news/",
+    "https://www.investing.com/news/economic-indicators/",
 ]
 
 
@@ -156,12 +156,10 @@ def parse_investing_news(url, period, user_id):
                     seen_articles.add(unique_identifier)
                     time_difference = get_time_difference(date, timezone)
 
-                    if is_stocks_in_news(article_url, user_id, title, about):
-                        result_string = f"\n\n🔥 **{title}**\n\n🌊 **{about}**\n\n✨ __{article_url}__\n\n📆 __{to_local(timezone, date)}__\n\n**{time_difference}**"
-                        logger.debug(f"Adding {article_url} - {title} to results")
-                        results.append(result_string)
-                    else:
-                        pass
+                    result_string = f"\n\n🔥 **{title}**\n\n🌊 **{about}**\n\n✨ __{article_url}__\n\n📆 __{to_local(timezone, date)}__\n\n**{time_difference}**"
+                    logger.debug(f"Adding {article_url} - {title} to results")
+                    results.append(result_string)
+
             except Exception as e:
                 logger.error(f"Error processing article: {e}")
         return results
@@ -191,12 +189,13 @@ async def check_new_articles(user_id):
             articles = parse_investing_news(link, "1 minutes", user_id)
             for article in articles:
                 if article not in seen_articles:
-                    logger.debug(f"Added to seen articles: {article}")
-                    seen_articles.add(article)
                     await notify_user(user_id, article)
 
+                    logger.debug(f"Added to seen articles: {article}")
+                    seen_articles.add(article)
+
         logger.info("Sleeping...")
-        await asyncio.sleep(3600 / 60)
+        await asyncio.sleep(3600 / 600)
 
 
 def run_check_new_articles(user_id):

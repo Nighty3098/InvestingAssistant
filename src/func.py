@@ -1,9 +1,11 @@
+import asyncio
 import os
 import re
 import threading
 import time
 from datetime import datetime, timedelta
 
+import matplotlib.pyplot as plt
 import psutil
 import pytz
 import requests
@@ -26,6 +28,119 @@ from resources.messages import WELCOME_MESSAGE, register_message
 
 user_price_thread = {}
 user_parse_thread = {}
+
+
+def is_string(value):
+    return isinstance(value, str)
+
+
+def is_integer(value):
+    return str(value).isdigit()
+
+
+def is_float(value):
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
+
+
+def create_plt_price(ticker, user_id):
+    try:
+        period = "5d"
+        interval = "1h"
+
+        data = yf.download(
+            ticker,
+            period=period,
+            interval=interval,
+            auto_adjust=False,
+            threads=True,
+            prepost=True,
+        )
+
+        logger.debug(data)
+
+        plt.figure(figsize=(20, 15))
+        plt.plot(
+            data["Adj Close"],
+            label="Adjusted Close Price",
+            marker="o",
+            color="blue",
+            linestyle="-",
+            linewidth=2,
+            markersize=5,
+        )
+
+        max_price = data["Adj Close"].max()
+        min_price = data["Adj Close"].min()
+        max_date = data["Adj Close"].idxmax()
+        min_date = data["Adj Close"].idxmin()
+
+        for i, price in enumerate(data["Adj Close"]):
+            if i % 2 == 0:
+                plt.text(
+                    data.index[i],
+                    price + 1,
+                    f"{price:.1f}",
+                    fontsize=8,
+                    ha="center",
+                    va="top",
+                )
+                plt.plot(
+                    [data.index[i], data.index[i]],
+                    [price, price + 1],
+                    color="black",
+                    linestyle="--",
+                    linewidth=0.5,
+                )
+
+        plt.annotate(
+            f"Max: {max_price:.2f}",
+            xy=(max_date, max_price),
+            xytext=(max_date, max_price + 5),
+            arrowprops=dict(
+                facecolor="black",
+            ),
+            fontsize=10,
+        )
+        plt.annotate(
+            f"Min: {min_price:.2f}",
+            xy=(min_date, min_price),
+            xytext=(min_date, min_price - 5),
+            arrowprops=dict(
+                facecolor="black",
+            ),
+            fontsize=10,
+        )
+
+        plt.title(
+            f"{ticker} Price Over the {period} with interval {interval}", fontsize=16
+        )
+        plt.xlabel("Date", fontsize=14)
+        plt.ylabel("Price (USD)", fontsize=14)
+        plt.xticks(rotation=45)
+        plt.legend()
+        plt.grid(
+            visible=True,
+            linestyle="--",
+        )
+
+        plt.axhline(y=max_price, color="red", linestyle="--", label="Resistance")
+        plt.axhline(y=min_price, color="green", linestyle="--", label="Support")
+
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig("stock_price_chart.png")
+        plt.close()
+
+        image_path = "stock_price_chart.png"
+
+        return image_path
+    except Exception as e:
+        logger.error(f"Error in create_plt_price: {e}")
+        return None
 
 
 def get_time_difference(document_date, timezone):
@@ -60,26 +175,42 @@ def get_time_difference(document_date, timezone):
     return ", ".join(time_parts)
 
 
-def check_stock_prices(user_id):
-    from db import get_stocks, get_stock_info
+async def check_stock_prices(user_id):
+    from db import get_stock_info, get_stocks
 
     while True:
         stock_prices = get_stocks(create_connection(), user_id)
-        logger.debug(stock_prices)
+        logger.debug(f"Old stock prices: {stock_prices}")
 
         for stock_name in stock_prices.keys():
             current_price = get_stock_info(stock_name)[1]
-            if current_price != stock_prices[stock_name]:
-                logger.info(
-                    f"Message for {user_id}: Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}"
+            if is_string(current_price):
+                logger.error(
+                    f"Error getting stock price for: {stock_name} {current_price}"
                 )
-                app.send_message(
-                    user_id,
-                    f"Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}",
-                    parse_mode=enums.ParseMode.MARKDOWN,
-                )
-                stock_prices[stock_name] = current_price
-        time.sleep(5)
+            else:
+                if float(current_price) != float(stock_prices[stock_name]):
+                    if float(current_price) < float(stock_prices[stock_name]):
+                        label = "🔴"
+                    if float(current_price) > float(stock_prices[stock_name]):
+                        label = "🟢"
+                    else:
+                        label = "🟡"
+                    logger.info(
+                        f"New message for {user_id}: Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}"
+                    )
+                    await app.send_message(
+                        user_id,
+                        f"{label} Update stock price: {stock_name}\nOld: {stock_prices[stock_name]}\nNew: {current_price}",
+                        parse_mode=enums.ParseMode.MARKDOWN,
+                    )
+                    stock_prices[stock_name] = str(current_price)
+                    logger.info(
+                        f"Updated old stock price from {stock_prices[stock_name]} to {current_price}"
+                    )
+                else:
+                    pass
+        time.sleep(10)
 
 
 def start_monitoring_thread():
@@ -92,6 +223,22 @@ def start_monitoring_thread():
         logger.error(f"Error in start_monitoring_thread: {e}")
 
 
+def create_price_loop(user_id: str):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(check_stock_prices(user_id))
+    loop.close()
+
+
+def create_article_loop(user_id: str):
+    from parsing import run_check_new_articles
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(run_check_new_articles(user_id))
+    loop.close()
+
+
 def start_price_monitor_thread(user_id: str):
     try:
         if user_id in user_price_thread:
@@ -99,7 +246,7 @@ def start_price_monitor_thread(user_id: str):
                 f"Price thread already running for user ID: {user_id}. Skipped..."
             )
         else:
-            price_thread = threading.Thread(target=check_stock_prices, args=(user_id,))
+            price_thread = threading.Thread(target=create_price_loop, args=(user_id,))
             price_thread.daemon = True
             price_thread.start()
 
@@ -110,16 +257,16 @@ def start_price_monitor_thread(user_id: str):
             )
     except Exception as e:
         logger.error(f"Error in start_parsing_thread: {e}")
+    finally:
+        pass
 
 
 def start_parsing_thread(user_id: str):
     try:
-        from parsing import run_check_new_articles
-
         if user_id in user_parse_thread:
             logger.info(f"Thread already running for user ID: {user_id}. Skipped...")
         else:
-            thread = threading.Thread(target=run_check_new_articles, args=(user_id,))
+            thread = threading.Thread(target=create_article_loop, args=(user_id,))
             thread.daemon = True
             thread.start()
 
@@ -259,6 +406,8 @@ async def register_user(user_id, username, callback_query):
             logger.info(f"User {user_id} - {username} registered")
 
             start_parsing_thread(user_id)
+            start_price_monitor_thread(user_id)
+
         else:
             await callback_query.message.edit_text(
                 "**Error while registering user. Try again later**",

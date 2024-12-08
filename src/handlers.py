@@ -6,53 +6,25 @@ from threading import Thread
 
 from pyrogram import Client, enums, filters
 
-from config import API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file, logger
-from db import (
-    add_city_to_db,
-    add_stock_to_db,
-    check_user_account,
-    create_connection,
-    create_table,
-    create_users_table,
-    get_users_stocks,
-    registering_user,
-    remove_stock_from_db,
-    update_stock_quantity,
-)
-from func import (
-    log_resource_usage,
-    notify_user,
-    process_adding_stocks,
-    process_removing_stocks,
-    register_user,
-    start_monitoring_thread,
-    start_parsing_thread,
-    start_price_monitor_thread,
-)
-from kb_builder.user_panel import (
-    back_kb,
-    back_stocks_kb,
-    main_kb,
-    register_user_kb,
-    stocks_management_kb,
-)
-from parsing import (
-    check_new_articles,
-    parse_investing_news,
-    run_check_new_articles,
-    start_parsing,
-)
-from resources.messages import (
-    ASSETS_MESSAGE,
-    WELCOME_MESSAGE,
-    add_asset_request,
-    collect_data,
-    get_news_period,
-    get_users_city,
-    not_register_message,
-    register_message,
-    remove_asset_request,
-)
+from config import (API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file,
+                    logger)
+from db import (add_city_to_db, add_stock_to_db, check_user_account,
+                create_connection, create_table, create_users_table,
+                get_users_stocks, registering_user, remove_stock_from_db,
+                update_stock_quantity)
+from func import (log_resource_usage, notify_user, process_adding_stocks,
+                  process_removing_stocks, register_user,
+                  start_monitoring_thread, start_parsing_thread,
+                  start_price_monitor_thread)
+from kb_builder.user_panel import (back_kb, back_stocks_kb, main_kb,
+                                   register_user_kb, stocks_management_kb)
+from parsing import (check_new_articles, parse_investing_news,
+                     run_check_new_articles, start_parsing)
+from resources.messages import (ASSETS_MESSAGE, WELCOME_MESSAGE,
+                                add_asset_request, check_price, collect_data,
+                                get_news_period, get_users_city,
+                                not_register_message, register_message,
+                                remove_asset_request)
 
 user_states = {}
 
@@ -79,7 +51,7 @@ async def start(client, message):
             )
 
             # start_parsing_thread(user_id)
-            start_price_monitor_thread(user_id)
+            # start_price_monitor_thread(user_id)
 
         else:
             photo_path = "resources/header.png"
@@ -100,13 +72,32 @@ async def answer(client, callback_query):
     try:
         data = callback_query.data
 
+        if data == "get_price":
+            global price_sent_message
+
+            logger.info(f"get_price: {user_id} - {username}")
+
+            user_states[user_id] = "price"
+
+            price_sent_message = await callback_query.message.edit_text(
+                check_price,
+                parse_mode=enums.ParseMode.MARKDOWN,
+                reply_markup=back_kb,
+            )
+
         if data == "to_main":
             logger.info(f"to_main: {user_id} - {username}")
 
             user_states[user_id] = "none"
+            photo_path = "resources/header.png"
 
-            await callback_query.message.edit_text(
-                WELCOME_MESSAGE,
+            sent_messages = callback_query.message
+
+            await app.delete_messages(chat_id=user_id, message_ids=sent_messages.id)
+            await app.send_photo(
+                photo=photo_path,
+                chat_id=user_id,
+                caption=WELCOME_MESSAGE,
                 reply_markup=main_kb,
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
@@ -258,6 +249,29 @@ async def handle_stock_input(client, message):
                 photo=photo_path,
                 chat_id=user_id,
                 caption="__Done__",
+                reply_markup=back_kb,
+                parse_mode=enums.ParseMode.MARKDOWN,
+            )
+
+        elif state == "price":
+            from db import get_more_info, get_stock_info
+            from func import create_plt_price
+
+            await app.delete_messages(
+                chat_id=user_id, message_ids=price_sent_message.id
+            )
+
+            data = message.text
+
+            stock_name, stock_price = get_stock_info(data)
+            image_path = create_plt_price(data, user_id)
+
+            info = get_more_info(data)
+
+            await app.send_photo(
+                photo=image_path,
+                chat_id=user_id,
+                caption=f"**{stock_name}**: {stock_price}\n\n{info["recommendations"]}\n\nP/E ratio: {info["pe_ratio"]}\nTarget mean price: {info["target_mean_price"]}\nTarget high price: {info["target_high_price"]}\nTarget low price: {info["target_low_price"]}",
                 reply_markup=back_kb,
                 parse_mode=enums.ParseMode.MARKDOWN,
             )

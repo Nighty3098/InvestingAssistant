@@ -3,7 +3,7 @@ WELCOME_MESSAGE = f"""
 """
 
 ASSETS_MESSAGE = """
-🗒️ **Here is a list of your stocks. You can change them via the main bot menu** 🗒️
+**Here is a list of your stocks. You can change them via the main bot menu**
 """
 
 add_asset_request = """
@@ -47,4 +47,8 @@ Tokyo: `Asia/Tokyo`
 Paris: `Europe/Paris`
 Berlin: `Europe/Berlin`
 Novosibirsk: `Asia/Novosibirsk`
+"""
+
+check_price = """
+📊 Enter the name of the stock you want to check price. 📊
 """
