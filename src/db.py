@@ -7,6 +7,34 @@ import yfinance as yf
 from config import home_dir, logger
 
 
+def get_more_info(ticker):
+    stock = yf.Ticker(ticker)
+    stock_info = stock.info
+
+    recommendations = stock.recommendations
+
+    target_data = stock.info.get("targetMeanPrice", "Target mean price not found")
+    target_high = stock.info.get("targetHighPrice", "Target high price not found")
+    target_low = stock.info.get("targetLowPrice", "Target low price not found")
+    stock_name = stock_info.get("longName", "Name not found")
+    stock_price = stock_info.get("currentPrice", "Price not found")
+    market_cap = stock_info.get("marketCap", "Market cap not found")
+    pe_ratio = stock_info.get("trailingPE", "P/E ratio not found")
+    dividend_yield = stock_info.get("dividendYield", "Dividend yield not found")
+
+    return {
+        "name": stock_name,
+        "price": stock_price,
+        "market_cap": market_cap,
+        "pe_ratio": pe_ratio,
+        "dividend_yield": dividend_yield,
+        "recommendations": recommendations,
+        "target_mean_price": target_data,
+        "target_high_price": target_high,
+        "target_low_price": target_low,
+    }
+
+
 def get_stock_info(ticker):
     stock = yf.Ticker(ticker)
 
