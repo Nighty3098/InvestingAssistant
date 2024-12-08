@@ -13,9 +13,16 @@ import yfinance as yf
 from pyrogram import enums
 
 from config import app, logger
-from db import (add_stock_to_db, check_user_account, create_connection,
-                get_city_from_db, get_users_stocks, registering_user,
-                remove_stock_from_db, update_stock_quantity)
+from db import (
+    add_stock_to_db,
+    check_user_account,
+    create_connection,
+    get_city_from_db,
+    get_users_stocks,
+    registering_user,
+    remove_stock_from_db,
+    update_stock_quantity,
+)
 from kb_builder.user_panel import main_kb
 from resources.messages import WELCOME_MESSAGE, register_message
 
