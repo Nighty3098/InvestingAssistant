@@ -11,12 +11,12 @@ from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.layers import LSTM, Dense
 from tensorflow.keras.models import Sequential
 
-np.random.seed(0)
-random.seed(0)
-tf.random.set_seed(0)
+np.random.seed(42)
+random.seed(42)
+tf.random.set_seed(42)
 
 end_date = datetime.now().date()
-start_date = end_date - timedelta(days=5 * 365)
+start_date = end_date - timedelta(days=2 * 365)
 
 ticker = "AAPL"
 
@@ -27,63 +27,69 @@ scaler = MinMaxScaler(feature_range=(0, 1))
 scaled_data = scaler.fit_transform(data)
 
 
-# Function to create dataset for LSTM model
 def create_dataset(data, time_step=1):
     X, y = [], []
-    for i in range(len(data) - time_step):
+    for i in range(len(data) - time_step - 1):
         X.append(data[i : (i + time_step), 0])
         y.append(data[i + time_step, 0])
     return np.array(X), np.array(y)
 
 
-time_step = 1
+time_step = 60
 X, y = create_dataset(scaled_data, time_step)
-X = X.reshape(X.shape[0], X.shape[1], 1)
 
+X = X.reshape(X.shape[0], X.shape[1], 1)
 model = Sequential()
 model.add(LSTM(50, return_sequences=True, input_shape=(X.shape[1], 1)))
-model.add(LSTM(50))
+model.add(LSTM(50, return_sequences=False))
 model.add(Dense(25))
 model.add(Dense(1))
 
 model.compile(optimizer="adam", loss="mean_squared_error")
 
 early_stopping = EarlyStopping(monitor="loss", patience=5, restore_best_weights=True)
-model.fit(X, y, batch_size=300, epochs=300, callbacks=[early_stopping])
+
+model.fit(X, y, batch_size=1, epochs=50, callbacks=[early_stopping])
 
 
-# Function to predict future prices for the next month
-def predict_future_prices(model, data, days=30):
+def predict_price(model, data, days=1):
     predictions = []
     last_data = data[-time_step:].reshape(1, time_step, 1)
 
     for _ in range(days):
         pred = model.predict(last_data)
-        predictions.append(scaler.inverse_transform(pred.reshape(-1, 1))[0][0])
+        predictions.append(pred[0][0])
         last_data = np.append(last_data[:, 1:, :], pred.reshape(1, 1, 1), axis=1)
 
-    return predictions
+    return scaler.inverse_transform(np.array(predictions).reshape(-1, 1)).flatten()
 
 
-# Predict prices for the next month
-predicted_prices = predict_future_prices(model, scaled_data)
+pred_tomorrow = predict_price(model, scaled_data, days=1)[0]
+pred_month = predict_price(model, scaled_data, days=60)
 
-# Calculate minimum, maximum and average predicted prices
-min_price = min(predicted_prices)
-max_price = max(predicted_prices)
-avg_price = sum(predicted_prices) / len(predicted_prices)
+current_price = data["Close"].iloc[-1]
 
-# print(f"Минимально прогнозируемая цена: {min_price:.2f}")
-# print(f"Максимально прогнозируемая цена: {max_price:.2f}")
-print(f"Средняя прогнозируемая цена: {avg_price:.2f}")
 
-# Plotting historical and predicted prices
-plt.figure(figsize=(30, 30))
-plt.plot(data.index[-100:], data["Close"][-100:], label="Historical prices")
-future_dates = [data.index[-1] + pd.Timedelta(days=i) for i in range(1, 31)]
-plt.plot(future_dates, predicted_prices, label="Forecast", color="orange")
-plt.legend()
-plt.title("AAPL share price forecast for the month")
-plt.xlabel("Date")
-plt.ylabel("Price")
-plt.show()
+def give_advice(current_price, predicted_price):
+    if predicted_price > current_price:
+        advice = "Buy"
+        probability = (predicted_price - current_price) / current_price * 100
+    elif predicted_price < current_price:
+        advice = "Sell"
+        probability = (current_price - predicted_price) / current_price * 100
+    else:
+        advice = "Wait"
+        probability = 0
+
+    return advice, probability
+
+
+advice_tomorrow, probability_tomorrow = give_advice(current_price, pred_tomorrow)
+
+advice_month, probability_month = give_advice(current_price, pred_month[-1])
+
+print(f"Current price AAPL: {current_price:.2f}")
+print(f"Predicted price for tomorrow: {pred_tomorrow:.2f}")
+
+print(f"Predicted price for the next month: {pred_month[-1]:.2f}")
+print(f"Advice: {advice_month} (Probability: {abs(probability_month):.2f}%)")
