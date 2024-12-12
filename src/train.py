@@ -1,33 +1,39 @@
+import os
 from datetime import datetime, timedelta
+from os import path
 
 import joblib
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 import yfinance as yf
 from keras.layers import LSTM, Dense
 from keras.models import Sequential
 from sklearn.preprocessing import MinMaxScaler
 
-from config import home_dir, logger
+from config import home_dir
 
 
-class CustomCallback(Callback):
-    def __init__(self, user_id, app, wait_message):
-        super().__init__()
-        self.user_id = user_id
+class TrainCallback(tf.keras.callbacks.Callback):
+    def __init__(self, app, user_id, wait_message):
         self.app = app
+        self.user_id = user_id
         self.wait_message = wait_message
 
-    def on_epoch_end(self, epoch, logs=None):
-        # Обновляем текст сообщения с процентом завершения
-        percent_complete = (epoch + 1) / self.params["epochs"] * 100
-        message = f"Epochs: {percent_complete:.2f}%"
-
-        self.app.loop.create_task(
-            self.app.edit_message_text(
-                chat_id=self.user_id, message_id=self.wait_message.id, text=message
-            )
+    async def update_message(self, epoch):
+        await self.app.edit_message_text(
+            chat_id=self.user_id,
+            message_id=self.wait_message.id,
+            text=f"⏳ Обучение модели... ({epoch+1}/500)",
         )
+
+    def on_epoch_end(self, epoch, logs=None):
+        import asyncio
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(self.update_message(epoch))
+        loop.close()
 
 
 class StockModel:
@@ -35,6 +41,9 @@ class StockModel:
         self.ticker = ticker
         self.model = None
         self.scaler = None
+
+        self.model_path = os.path.join(home_dir, "IPSA", "stock_model.h5")
+        self.scaler_path = os.path.join(home_dir, "IPSA", "scaler.save")
 
     def load_data(self):
         end_date = datetime.now()
@@ -74,8 +83,8 @@ class StockModel:
             self.create_model((X.shape[1], 1))
             self.model.fit(X, y, epochs=500, batch_size=32)
 
-            self.model.save(home_dir + "IPSA/stock_model.h5")
-            joblib.dump(self.scaler, home_dir + "IPSA/scaler.save")
+            self.model.save(self.model_path)
+            joblib.dump(self.scaler, self.scaler_path)
             return True
         except Exception as e:
             return False

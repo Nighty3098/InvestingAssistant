@@ -1,17 +1,20 @@
+import os
 from datetime import datetime, timedelta
+from os import path
 
 import joblib
 import numpy as np
 import yfinance as yf
 from keras.models import load_model
 
-from config import home_dir, logger
+from config import home_dir
 
 
 class StockPredictor:
     def __init__(self):
-        self.model_path = home_dir + "IPSA/stock_model.h5"
-        self.scaler_path = home_dir + "IPSA/scaler.save"
+        self.model_path = os.path.join(home_dir, "IPSA", "stock_model.h5")
+        self.scaler_path = os.path.join(home_dir, "IPSA", "scaler.save")
+
         self.model = load_model(self.model_path)
         self.scaler = joblib.load(self.scaler_path)
 

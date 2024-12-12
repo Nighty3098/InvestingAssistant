@@ -1,4 +1,5 @@
 import asyncio
+import os
 import sys
 import threading
 import time
@@ -8,6 +9,7 @@ from pyrogram import Client, enums, filters
 
 from config import (API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file,
                     logger)
+from core import StockPredictor
 from db import (add_city_to_db, add_stock_to_db, check_user_account,
                 create_connection, create_table, create_users_table,
                 get_users_stocks, registering_user, remove_stock_from_db,
@@ -25,6 +27,7 @@ from resources.messages import (ASSETS_MESSAGE, WELCOME_MESSAGE,
                                 get_news_period, get_users_city,
                                 not_register_message, register_message,
                                 remove_asset_request)
+from train import StockModel, TrainCallback
 
 user_states = {}
 
@@ -50,8 +53,8 @@ async def start(client, message):
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
 
-            start_parsing_thread(user_id)
-            start_price_monitor_thread(user_id)
+            # start_parsing_thread(user_id)
+            # start_price_monitor_thread(user_id)
 
         else:
             photo_path = "resources/header.png"
@@ -261,6 +264,8 @@ async def handle_stock_input(client, message):
                 chat_id=user_id, message_ids=price_sent_message.id
             )
 
+            wait_message = await app.send_message(user_id, "⏳ Please wait...")
+
             data = message.text
 
             stock_name, stock_price = get_stock_info(data)
@@ -268,13 +273,38 @@ async def handle_stock_input(client, message):
 
             info = get_more_info(data)
 
-            await app.send_photo(
-                photo=image_path,
-                chat_id=user_id,
-                caption=f"**{stock_name}**:\n\nCurrent price: {stock_price}$\n\n{info["recommendations"]}\n\nP/E ratio: {info["pe_ratio"]}\nTarget mean price: {info["target_mean_price"]}$\nTarget high price: {info["target_high_price"]}$\nTarget low price: {info["target_low_price"]}$",
-                reply_markup=back_kb,
-                parse_mode=enums.ParseMode.MARKDOWN,
-            )
+            model = StockModel(data)
+            predictor = StockPredictor()
+            if model.train_model(callbacks=[TrainCallback()]):
+                advice_message = predictor.analyze(data)
+
+                await app.delete_messages(chat_id=user_id, message_ids=wait_message.id)
+                await app.send_photo(
+                    photo=image_path,
+                    chat_id=user_id,
+                    caption=(
+                        f"**{stock_name}**:\n\n"
+                        f"Current price: {stock_price}$\n\n"
+                        f"{info['recommendations']}\n\n"
+                        f"P/E ratio: {info['pe_ratio']}\n"
+                        f"Target mean price: {info['target_mean_price']}$\n"
+                        f"Target high price: {info['target_high_price']}$\n"
+                        f"Target low price: {info['target_low_price']}$\n"
+                        f"{advice_message}"
+                    ),
+                    reply_markup=back_kb,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                )
+            else:
+                await app.delete_messages(chat_id=user_id, message_ids=wait_message.id)
+                photo_path = "resources/header.png"
+                await app.send_photo(
+                    photo=photo_path,
+                    chat_id=user_id,
+                    caption=WELCOME_MESSAGE,
+                    reply_markup=main_kb,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                )
 
         user_states[user_id] = None
     except Exception as e:
