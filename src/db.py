@@ -21,8 +21,16 @@ def get_more_info(ticker):
     market_cap = stock_info.get("marketCap", "Market cap not found")
     pe_ratio = stock_info.get("trailingPE", "P/E ratio not found")
     dividend_yield = stock_info.get("dividendYield", "Dividend yield not found")
+    country = stock.info.get("country", "Country not found")
+    sector = stock.info.get("sector", "Sector not found")
+    eps = stock.info.get("trailingEps", "EPS not found")
+
+    logger.info(stock_info)
 
     return {
+        "sector": sector,
+        "country": country,
+        "eps": eps,
         "name": stock_name,
         "price": stock_price,
         "market_cap": market_cap,

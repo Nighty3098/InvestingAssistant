@@ -50,8 +50,8 @@ async def start(client, message):
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
 
-            # start_parsing_thread(user_id)
-            # start_price_monitor_thread(user_id)
+            start_parsing_thread(user_id)
+            start_price_monitor_thread(user_id)
 
         else:
             photo_path = "resources/header.png"
@@ -271,7 +271,7 @@ async def handle_stock_input(client, message):
             await app.send_photo(
                 photo=image_path,
                 chat_id=user_id,
-                caption=f"**{stock_name}**: {stock_price}\n\n{info["recommendations"]}\n\nP/E ratio: {info["pe_ratio"]}\nTarget mean price: {info["target_mean_price"]}\nTarget high price: {info["target_high_price"]}\nTarget low price: {info["target_low_price"]}",
+                caption=f"**{stock_name}**:\n\nCurrent price: {stock_price}$\n\n{info["recommendations"]}\n\nP/E ratio: {info["pe_ratio"]}\nTarget mean price: {info["target_mean_price"]}$\nTarget high price: {info["target_high_price"]}$\nTarget low price: {info["target_low_price"]}$",
                 reply_markup=back_kb,
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
