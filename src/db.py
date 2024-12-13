@@ -25,8 +25,6 @@ def get_more_info(ticker):
     sector = stock.info.get("sector", "Sector not found")
     eps = stock.info.get("trailingEps", "EPS not found")
 
-    logger.info(stock_info)
-
     return {
         "sector": sector,
         "country": country,

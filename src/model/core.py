@@ -1,17 +1,20 @@
+import os
 from datetime import datetime, timedelta
+from os import path
 
 import joblib
 import numpy as np
 import yfinance as yf
 from keras.models import load_model
 
-from config import home_dir, logger
-
 
 class StockPredictor:
     def __init__(self):
-        self.model_path = home_dir + "IPSA/stock_model.h5"
-        self.scaler_path = home_dir + "IPSA/scaler.save"
+        self.model_path = os.path.join(
+            os.getcwd(), "IPSA_MODEL", "src", "stock_model.keras"
+        )
+        self.scaler_path = os.path.join(os.getcwd(), "IPSA_MODEL", "src", "scaler.save")
+
         self.model = load_model(self.model_path)
         self.scaler = joblib.load(self.scaler_path)
 
@@ -54,3 +57,8 @@ class StockPredictor:
         else:
             message += "Advice: Hold"
         return message
+
+
+if __name__ == "__main__":
+    stock_predictor = StockPredictor()
+    print(stock_predictor.analyze("AAPL"))
