@@ -6,6 +6,7 @@ import time
 from threading import Thread
 
 from pyrogram import Client, enums, filters
+from pyrogram.types import InputMediaPhoto
 
 from config import (API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file,
                     logger)
@@ -268,27 +269,34 @@ async def handle_stock_input(client, message):
             data = message.text
 
             stock_name, stock_price = get_stock_info(data)
-            image_path = create_plt_price(data, user_id)
-
             info = get_more_info(data)
 
             predictor = StockPredictor()
             advice_message = predictor.analyze(data)
 
+            predict_plt = predictor.predict_plt(data)
+            image_path = create_plt_price(data, user_id)
+
+            media = []
+
+            media.append(InputMediaPhoto(image_path))
+            media.append(InputMediaPhoto(predict_plt))
+
             await app.delete_messages(chat_id=user_id, message_ids=wait_message.id)
-            await app.send_photo(
-                photo=image_path,
+            await app.send_media_group(user_id, media)
+            await app.send_message(
                 chat_id=user_id,
-                caption=(
+                text=(
                     f"**{stock_name}**:\n\n"
                     f"Current price: {stock_price}$\n\n"
-                    f"────────────────\n"
-                    f"{info['recommendations']}\n\n"
-                    f"────────────────\n"
+                    f"─────────────────────\n"
+                    # f"{info['recommendations']}\n\n"
+                    # f"────────────────\n"
                     f"P/E ratio: {info['pe_ratio']}\n"
                     f"Target mean price: {info['target_mean_price']}$\n"
                     f"Target high price: {info['target_high_price']}$\n"
                     f"Target low price: {info['target_low_price']}$\n"
+                    f"─────────────────────\n"
                     f"{advice_message}"
                 ),
                 reply_markup=back_kb,

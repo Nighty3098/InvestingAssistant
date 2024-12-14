@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from os import path
 
 import joblib
+import matplotlib.pyplot as plt
 import numpy as np
 import yfinance as yf
 from keras.models import load_model
@@ -48,7 +49,7 @@ class StockPredictor:
 
         current_price = yf.download(ticker, period="1d")["Close"][-1]
 
-        message = f"Predicted price for {ticker} next month: {predicted_price:.2f}\nCurrent price: {current_price:.2f}\n"
+        message = f"Predicted price for {ticker} next month: {predicted_price:.2f}$\nCurrent price: {current_price:.2f}$\n"
 
         if predicted_price > current_price:
             message += "Advice: Buy"
@@ -57,6 +58,47 @@ class StockPredictor:
         else:
             message += "Advice: Hold"
         return message
+
+    def predict_plt(self, ticker):
+        predicted_price = self.predict_price(ticker)  # Unpack correctly
+        historical_data = yf.download(ticker, period="1y")
+
+        # Create plot
+        plt.figure(figsize=(14, 7))
+
+        # Historical prices
+        plt.plot(
+            historical_data.index,
+            historical_data["Close"],
+            label="Historical Price",
+            color="blue",
+        )
+
+        # Predicted price (next day)
+        future_date = historical_data.index[-1] + timedelta(days=1)
+        plt.scatter(
+            future_date, predicted_price, color="red", label="Predicted Price", zorder=5
+        )
+
+        plt.title(f"Price Prediction for {ticker}")
+        plt.xlabel("Date")
+        plt.ylabel("Price")
+
+        plt.axhline(
+            y=historical_data["Close"][-1],
+            color="green",
+            linestyle="--",
+            label="Current Price",
+        )
+
+        plt.legend()
+
+        # Save plot
+        plt.savefig(f"{ticker}_price_prediction.png")
+
+        plt.close()
+
+        return f"{ticker}_price_prediction.png"
 
 
 if __name__ == "__main__":
