@@ -2,6 +2,7 @@ import os
 from datetime import datetime, timedelta
 
 import joblib
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import yfinance as yf
@@ -80,20 +81,15 @@ class StockPredictor:
         return message
 
     def predict_plt(self, ticker):
-        # Получаем предсказанную цену на следующий месяц
-        predicted_price = self.predict_price(
-            ticker
-        )  # Это одно значение, предполагаем, что это цена через месяц
+        predicted_price = self.predict_price(ticker)
         historical_data = yf.download(ticker, period="6mo")
 
         # Определяем границы прогноза (например, ±5% от предсказанной цены)
         min_forecast = predicted_price * 0.95  # Минимум на 5% ниже
         max_forecast = predicted_price * 1.05  # Максимум на 5% выше
 
-        # Создаем график
         plt.figure(figsize=(14, 7))
 
-        # Исторические цены
         plt.plot(
             historical_data.index,
             historical_data["Open"],
@@ -110,11 +106,11 @@ class StockPredictor:
 
         # Предсказанная цена (на следующий месяц)
         future_dates = [
-            historical_data.index[-1] + timedelta(days=i) for i in range(1, 31)
+            historical_data.index[-1] + timedelta(days=i + 30) for i in range(1, 31)
         ]
-        predicted_prices = [predicted_price] * len(
-            future_dates
-        )  # Предполагаем, что цена остается постоянной на весь месяц
+
+        # Предполагаем, что цена остается постоянной на весь месяц
+        predicted_prices = [predicted_price] * len(future_dates)
 
         plt.plot(
             future_dates,
@@ -124,7 +120,6 @@ class StockPredictor:
             linestyle="--",
         )
 
-        # Отмечаем минимумы и максимумы
         plt.scatter(
             future_dates[0],
             min_forecast,
@@ -136,7 +131,6 @@ class StockPredictor:
             future_dates[0], max_forecast, color="gold", label="Max Forecast", zorder=5
         )
 
-        # Границы прогноза
         plt.axhline(
             y=min_forecast,
             color="purple",
@@ -147,7 +141,6 @@ class StockPredictor:
             y=max_forecast, color="gold", linestyle="--", label="Max Forecast Boundary"
         )
 
-        # Подписываем цены на соответствующих точках
         plt.text(
             future_dates[0],
             min_forecast + 2,
@@ -163,7 +156,6 @@ class StockPredictor:
             color="gold",
         )
 
-        # Подписываем прогнозируемую цену
         plt.scatter(
             future_dates[0],
             predicted_price,
@@ -190,14 +182,10 @@ class StockPredictor:
             label="Current Price",
         )
 
+        plt.axis("on")
         plt.legend()
-
-        # Сохранение графика
         plt.savefig(f"{ticker}_price_prediction.png", dpi=1000)
-
-        # Показать график
         plt.show()
-
         plt.close()
 
         return f"{ticker}_price_prediction.png"
@@ -205,5 +193,5 @@ class StockPredictor:
 
 if __name__ == "__main__":
     stock_predictor = StockPredictor()
-    print(stock_predictor.analyze("TSLA"))
-    stock_predictor.predict_plt("TSLA")
+    print(stock_predictor.analyze("SBUX"))
+    stock_predictor.predict_plt("SBUX")
