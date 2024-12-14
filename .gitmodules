@@ -1,0 +1,3 @@
+[submodule "src/IPSA_MODEL"]
+	path = src/IPSA_MODEL
+	url = https://github.com/Nighty3098/IPSA_MODEL
