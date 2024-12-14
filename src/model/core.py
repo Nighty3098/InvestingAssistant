@@ -184,11 +184,11 @@ class StockPredictor:
 
         plt.axis("on")
         plt.legend()
-        plt.savefig(f"{ticker}_price_prediction.png", dpi=1000)
+        plt.savefig(f"price_prediction.png", dpi=1000)
         plt.show()
         plt.close()
 
-        return f"{ticker}_price_prediction.png"
+        return f"price_prediction.png"
 
 
 if __name__ == "__main__":
