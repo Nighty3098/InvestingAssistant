@@ -25,14 +25,12 @@ class StockPredictor:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=365)
 
-        # Загружаем данные с Yahoo Finance
         data = yf.download(
             ticker,
             start=start_date.strftime("%Y-%m-%d"),
             end=end_date.strftime("%Y-%m-%d"),
         )
 
-        # Проверяем наличие достаточного количества данных
         if len(data) < 60:
             raise ValueError("Not enough data to make a prediction.")
 
@@ -106,12 +104,10 @@ class StockPredictor:
             color="red",
         )
 
-        # Предсказанная цена (на следующий месяц)
         future_dates = [
             historical_data.index[-1] + timedelta(days=i + 30) for i in range(1, 31)
         ]
 
-        # Предполагаем, что цена остается постоянной на весь месяц
         predicted_prices = [predicted_price] * len(future_dates)
 
         plt.plot(
