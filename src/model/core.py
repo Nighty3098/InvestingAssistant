@@ -12,9 +12,11 @@ from keras.models import load_model
 class StockPredictor:
     def __init__(self):
         self.model_path = os.path.join(
-            os.getcwd(), "IPSA_MODEL", "src", "stock_model.keras"
+            os.getcwd(), "IPSA_MODEL", "price", "stock_model.keras"
         )
-        self.scaler_path = os.path.join(os.getcwd(), "IPSA_MODEL", "src", "scaler.save")
+        self.scaler_path = os.path.join(
+            os.getcwd(), "IPSA_MODEL", "price", "scaler.save"
+        )
 
         self.model = load_model(self.model_path)
         self.scaler = joblib.load(self.scaler_path)
@@ -185,7 +187,7 @@ class StockPredictor:
         plt.axis("on")
         plt.legend()
         plt.savefig(f"price_prediction.png", dpi=1000)
-        plt.show()
+
         plt.close()
 
         return f"price_prediction.png"
