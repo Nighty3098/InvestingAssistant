@@ -1,102 +1,89 @@
+import os
+
 import matplotlib.pyplot as plt
-import numpy as np
+import mplfinance as mpf
 import yfinance as yf
-from keras.models import load_model
-
-from config import logger
 
 
-def create_plt_price(ticker, user_id):
-    try:
-        period = "5d"
-        interval = "1h"
+def create_candle_price(stock_index, user_id):
+    data = yf.download(stock_index, period="5d", interval="1h")
 
-        data = yf.download(
-            ticker,
-            period=period,
-            interval=interval,
-            auto_adjust=False,
-            threads=True,
-            prepost=True,
+    if data.empty:
+        print("Нет данных для указанного индекса.")
+        return
+
+    mpf.plot(
+        data,
+        type="candle",
+        style="charles",
+        title=f"{stock_index} - Price Chart",
+        ylabel="Price (USD)",
+        volume=False,
+        savefig=os.path.join(os.getcwd(), "stock_candlestick.png"),
+        figsize=(14, 7),
+    )
+
+    return os.path.join(os.getcwd(), "stock_candlestick.png")
+
+
+def create_plt_price(stock_index, user_id):
+    data = yf.download(stock_index, period="5d", interval="1h")
+
+    if data.empty:
+        print("Нет данных для указанного индекса.")
+        return
+
+    plt.figure(figsize=(14, 7))
+    plt.plot(data.index, data["Open"], label="Open Price", color="red")
+
+    for i in range(len(data)):
+        plt.text(
+            data.index[i],
+            data["Open"][i] + 1,
+            f"{data['Open'][i]:.2f}",
+            fontsize=8,
+            ha="center",
+            va="bottom",
+            color="black",
         )
-
-        plt.figure(figsize=(20, 15))
         plt.plot(
-            data["Adj Close"],
-            label="Adjusted Close Price",
-            marker="o",
-            color="blue",
-            linestyle="-",
-            linewidth=2,
-            markersize=5,
-        )
-
-        max_price = data["Adj Close"].max()
-        min_price = data["Adj Close"].min()
-        max_date = data["Adj Close"].idxmax()
-        min_date = data["Adj Close"].idxmin()
-
-        for i, price in enumerate(data["Adj Close"]):
-            if i % 2 == 0:
-                plt.text(
-                    data.index[i],
-                    price + 1,
-                    f"{price:.1f}",
-                    fontsize=8,
-                    ha="center",
-                    va="top",
-                )
-                plt.plot(
-                    [data.index[i], data.index[i]],
-                    [price, price + 1],
-                    color="black",
-                    linestyle="--",
-                    linewidth=0.5,
-                )
-
-        plt.annotate(
-            f"Max: {max_price:.2f}",
-            xy=(max_date, max_price),
-            xytext=(max_date, max_price + 5),
-            arrowprops=dict(
-                facecolor="black",
-            ),
-            fontsize=10,
-        )
-        plt.annotate(
-            f"Min: {min_price:.2f}",
-            xy=(min_date, min_price),
-            xytext=(min_date, min_price - 5),
-            arrowprops=dict(
-                facecolor="black",
-            ),
-            fontsize=10,
-        )
-
-        plt.title(
-            f"{ticker} Price Over the {period} with interval {interval}", fontsize=16
-        )
-        plt.xlabel("Date", fontsize=14)
-        plt.ylabel("Price (USD)", fontsize=14)
-        plt.xticks(rotation=45)
-        plt.legend()
-        plt.grid(
-            visible=True,
+            [
+                data.index[i],
+                data.index[i],
+            ],
+            [
+                data["Open"][i],
+                data["Open"][i] + 0.6,
+            ],
+            color="black",
             linestyle="--",
+            linewidth=0.5,
         )
 
-        plt.axhline(y=max_price, color="red", linestyle="--", label="Resistance")
-        plt.axhline(y=min_price, color="green", linestyle="--", label="Support")
+    plt.title(f"{stock_index} - Open Price")
+    plt.xlabel("Date")
+    plt.ylabel("Price")
 
-        plt.legend()
-        plt.tight_layout()
-        plt.savefig("stock_price_chart.png")
-        plt.close()
+    plt.grid()
+    plt.legend()
 
-        image_path = "stock_price_chart.png"
+    plt.plot(data.index, data["Close"], label="Close Price", color="orange")
 
-        return image_path
-    except Exception as e:
-        logger.error(f"Error in create_plt_price: {e}")
-        return None
+    plt.title(f"{stock_index} - Close Price")
+    plt.xlabel("Date")
+    plt.ylabel("Price")
 
+    plt.grid("on")
+    plt.legend()
+
+    path = os.path.join(os.getcwd(), "stock.png")
+
+    plt.tight_layout()
+    plt.savefig(path)
+
+    return path
+
+
+if __name__ == "__main__":
+    create_plt_price("AAPL", "0")
+    create_candle_price("AAPL", "0")

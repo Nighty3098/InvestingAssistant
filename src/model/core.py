@@ -34,17 +34,16 @@ class StockPredictor:
         if len(data) < 60:
             raise ValueError("Not enough data to make a prediction.")
 
-        # Используем последние 60 дней всех признаков
-        last_60_days = data[
+        last_365_days = data[
             ["Open", "Close", "High", "Low", "Adj Close", "Volume"]
-        ].values[-60:]
+        ].values[-365:]
 
         # Масштабируем данные
-        last_60_days_scaled = self.scaler.transform(last_60_days)
+        last_365_days_scaled = self.scaler.transform(last_365_days)
 
         # Подготовка данных для модели
         X_test = []
-        X_test.append(last_60_days_scaled)
+        X_test.append(last_365_days_scaled)
         X_test = np.array(X_test)
         X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], X_test.shape[2]))
 
@@ -52,7 +51,7 @@ class StockPredictor:
         predicted_price = self.model.predict(X_test)
 
         # Создаем массив для обратного преобразования с правильной формой
-        last_day_features = last_60_days_scaled[-1].copy()  # Копируем последний день
+        last_day_features = last_365_days_scaled[-1].copy()  # Копируем последний день
         last_day_features[1] = predicted_price[0][
             0
         ]  # Заменяем цену закрытия на предсказанную
@@ -64,19 +63,23 @@ class StockPredictor:
 
         return predicted_price_unscaled[0][1]  # Вернем предсказанную цену закрытия
 
-    def analyze(self, ticker):
+    def analyze(self, ticker, threshold=0.05):
         predicted_price = self.predict_price(ticker)
 
         current_price = yf.download(ticker, period="1d")["Close"][-1]
 
         message = f"Predicted price for {ticker} next month: {predicted_price:.2f}$\nCurrent price: {current_price:.2f}$\n"
 
-        if predicted_price > current_price:
+        price_change_percentage = (predicted_price - current_price) / current_price
+
+        message += f"─────────────────────\nExpected price change: {price_change_percentage * 100:.2f}%\n"
+
+        if price_change_percentage > threshold:
             message += "Advice: Buy"
-        elif predicted_price < current_price:
+        elif price_change_percentage < -threshold:
             message += "Advice: Sell"
         else:
-            message += "Advice: Hold"
+            message += "Advice: Wait"
 
         return message
 
@@ -182,11 +185,9 @@ class StockPredictor:
 
         plt.axis("on")
         plt.legend()
-        plt.savefig(f"price_prediction.png", dpi=1000)
+        plt.savefig(os.path.join(os.getcwd(), "price_prediction.png"))
 
         plt.close()
-
-        return f"price_prediction.png"
 
 
 if __name__ == "__main__":

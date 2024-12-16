@@ -17,7 +17,7 @@ from db import (add_stock_to_db, check_user_account, create_connection,
                 get_city_from_db, get_users_stocks, registering_user,
                 remove_stock_from_db, update_stock_quantity)
 from kb_builder.user_panel import main_kb
-from plt_gen import create_plt_price
+from plt_gen import create_candle_price, create_plt_price
 from resources.messages import WELCOME_MESSAGE, register_message
 
 user_price_thread = {}
@@ -38,6 +38,11 @@ def is_float(value):
         return True
     except ValueError:
         return False
+
+
+async def send_images(user_id, images):
+    for image in images:
+        await app.send_document(chat_id=user_id, document=image)
 
 
 def get_time_difference(document_date, timezone):

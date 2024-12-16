@@ -15,7 +15,7 @@ from db import (add_city_to_db, add_stock_to_db, check_user_account,
                 get_users_stocks, registering_user, remove_stock_from_db,
                 update_stock_quantity)
 from func import (log_resource_usage, notify_user, process_adding_stocks,
-                  process_removing_stocks, register_user,
+                  process_removing_stocks, register_user, send_images,
                   start_monitoring_thread, start_parsing_thread,
                   start_price_monitor_thread)
 from kb_builder.user_panel import (back_kb, back_stocks_kb, main_kb,
@@ -53,8 +53,8 @@ async def start(client, message):
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
 
-            start_parsing_thread(user_id)
-            start_price_monitor_thread(user_id)
+            # start_parsing_thread(user_id)
+            # start_price_monitor_thread(user_id)
 
         else:
             photo_path = "resources/header.png"
@@ -258,7 +258,7 @@ async def handle_stock_input(client, message):
 
         elif state == "price":
             from db import get_more_info, get_stock_info
-            from func import create_plt_price
+            from func import create_candle_price, create_plt_price
 
             await app.delete_messages(
                 chat_id=user_id, message_ids=price_sent_message.id
@@ -273,20 +273,22 @@ async def handle_stock_input(client, message):
 
             predictor = StockPredictor()
             advice_message = predictor.analyze(data)
+            predictor.predict_plt(data)
 
-            predict_plt = predictor.predict_plt(data)
             image_path = create_plt_price(data, user_id)
+            candle_path = create_candle_price(data, user_id)
+            predict_path = os.path.join(os.getcwd(), "price_prediction.png")
 
-            # media = []
-            # media.append(InputMediaPhoto(image_path))
-            # media.append(InputMediaPhoto(predict_plt))
+            images = []
+            images.append(InputMediaPhoto(image_path))
+            images.append(InputMediaPhoto(predict_path))
+            images.append(InputMediaPhoto(candle_path))
 
             await app.delete_messages(chat_id=user_id, message_ids=wait_message.id)
-            # await app.send_media_group(user_id, media)
-            await app.send_photo(
-                photo=image_path,
+            await app.send_media_group(chat_id=user_id, media=images)
+            await app.send_message(
                 chat_id=user_id,
-                caption=(
+                text=(
                     f"**{stock_name}**:\n\n"
                     f"Current price: {stock_price}$\n\n"
                     f"─────────────────────\n"
