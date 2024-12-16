@@ -72,7 +72,7 @@ class StockPredictor:
 
         price_change_percentage = (predicted_price - current_price) / current_price
 
-        message += f"─────────────────────\nExpected price change: {price_change_percentage * 100:.2f}%\n"
+        message += f"────────────────────────────\nExpected price change: {price_change_percentage * 100:.2f}%\n"
 
         if price_change_percentage > threshold:
             message += "Advice: Buy"
