@@ -5,6 +5,7 @@ import joblib
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import yfinance as yf
 from keras.models import load_model
 
@@ -66,8 +67,33 @@ class StockPredictor:
     def analyze(self, ticker, threshold=0.05):
         predicted_price = self.predict_price(ticker)
 
-        current_price = yf.download(ticker, period="1d")["Close"][-1]
+        current_price_data = yf.download(ticker, period="1d")["Close"]
 
+        # Check if there is data for the current price
+        if current_price_data.empty:
+            print(f"No current price data found for ticker: {ticker}")
+            return None
+
+        # Use iloc to safely access the last price
+        current_price = current_price_data.iloc[-1]
+
+        # Ensure current_price is a float
+        if isinstance(current_price, pd.Series):
+            current_price = current_price.iloc[
+                0
+            ]  # This should not be necessary if you are using iloc[-1]
+
+        # Ensure predicted_price is a number
+        if isinstance(predicted_price, np.ndarray):
+            predicted_price = predicted_price[0]  # If it's a NumPy array
+        elif isinstance(predicted_price, pd.Series):
+            predicted_price = predicted_price.iloc[0]  # If it's a Series
+
+        # Ensure both prices are floats
+        current_price = float(current_price)
+        predicted_price = float(predicted_price)
+
+        # Form the message
         message = f"Predicted price for {ticker} next month: {predicted_price:.2f}$\nCurrent price: {current_price:.2f}$\n"
 
         price_change_percentage = (predicted_price - current_price) / current_price
@@ -83,9 +109,14 @@ class StockPredictor:
 
         return message
 
-    def predict_plt(self, ticker):
+    def predict_plt(self, ticker, user_id):
         predicted_price = self.predict_price(ticker)
         historical_data = yf.download(ticker, period="6mo")
+
+        # Check if historical_data is empty
+        if historical_data.empty:
+            print(f"No historical data found for ticker: {ticker}")
+            return None
 
         # Определяем границы прогноза (например, ±5% от предсказанной цены)
         min_forecast = predicted_price * 0.95  # Минимум на 5% ниже
@@ -176,18 +207,27 @@ class StockPredictor:
         plt.xlabel("Date")
         plt.ylabel("Price")
 
+        # Ensure single value
+        current_price = float(historical_data["Close"].iloc[-1])
+
         plt.axhline(
-            y=historical_data["Close"][-1],
+            y=current_price,
             color="green",
             linestyle="--",
             label="Current Price",
         )
 
+        filename = os.path.join(
+            os.getcwd(), "client_data", f"stock_plot_predict_{user_id}_{ticker}.png"
+        )
+
         plt.axis("on")
         plt.legend()
-        plt.savefig(os.path.join(os.getcwd(), "price_prediction.png"))
+        plt.savefig(filename)
 
         plt.close()
+
+        return filename
 
 
 if __name__ == "__main__":

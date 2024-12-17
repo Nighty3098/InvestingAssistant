@@ -1,89 +1,48 @@
-import os
-
+import datetime
 import matplotlib.pyplot as plt
-import mplfinance as mpf
 import yfinance as yf
-
-
-def create_candle_price(stock_index, user_id):
-    data = yf.download(stock_index, period="5d", interval="1h")
-
-    if data.empty:
-        print("Нет данных для указанного индекса.")
-        return
-
-    mpf.plot(
-        data,
-        type="candle",
-        style="charles",
-        title=f"{stock_index} - Price Chart",
-        ylabel="Price (USD)",
-        volume=False,
-        savefig=os.path.join(os.getcwd(), "stock_candlestick.png"),
-        figsize=(14, 7),
-    )
-
-    return os.path.join(os.getcwd(), "stock_candlestick.png")
-
+import os
 
 def create_plt_price(stock_index, user_id):
     data = yf.download(stock_index, period="5d", interval="1h")
 
     if data.empty:
-        print("Нет данных для указанного индекса.")
         return
 
-    plt.figure(figsize=(14, 7))
-    plt.plot(data.index, data["Open"], label="Open Price", color="red")
+    current_price = float(data["Close"].iloc[-1])
 
-    for i in range(len(data)):
-        plt.text(
-            data.index[i],
-            data["Open"][i] + 1,
-            f"{data['Open'][i]:.2f}",
-            fontsize=8,
-            ha="center",
-            va="bottom",
-            color="black",
-        )
-        plt.plot(
-            [
-                data.index[i],
-                data.index[i],
-            ],
-            [
-                data["Open"][i],
-                data["Open"][i] + 0.6,
-            ],
-            color="black",
-            linestyle="--",
-            linewidth=0.5,
-        )
+    min_forecast = current_price * 0.95
+    max_forecast = current_price * 1.05
 
-    plt.title(f"{stock_index} - Open Price")
+    plt.figure(figsize=(10, 6))
+
+    plt.plot(data.index, data["Open"], label="Open Price", color="blue")
+    plt.plot(data.index, data["Close"], label="Close Price", color="red")
+
+    plt.axhline(y=min_forecast, color="purple", linestyle="--", label="Min Forecast")
+    plt.axhline(y=max_forecast, color="gold", linestyle="--", label="Max Forecast")
+
+    plt.axhline(y=current_price, color="green", linestyle="--", label="Current Price")
+
+    plt.text(data.index[-1], min_forecast + 2, f"{min_forecast:.2f}", fontsize=10, color="purple")
+    plt.text(data.index[-1], max_forecast + 2, f"{max_forecast:.2f}", fontsize=10, color="gold")
+    
+    plt.text(data.index[-1], current_price + 2, f"{current_price:.2f}", fontsize=10, color="green")
+
+    plt.title(f"Stock Prices for {stock_index} Over Last 5 Days")
     plt.xlabel("Date")
     plt.ylabel("Price")
-
-    plt.grid()
+    
+    plt.xticks(rotation=45)
+    
     plt.legend()
-
-    plt.plot(data.index, data["Close"], label="Close Price", color="orange")
-
-    plt.title(f"{stock_index} - Close Price")
-    plt.xlabel("Date")
-    plt.ylabel("Price")
-
-    plt.grid("on")
-    plt.legend()
-
-    path = os.path.join(os.getcwd(), "stock.png")
-
+    
+    filename = os.path.join(os.getcwd(), "client_data", f"stock_plot_{user_id}_{stock_index}.png")
     plt.tight_layout()
-    plt.savefig(path)
+    plt.savefig(filename)
+    plt.close()
 
-    return path
-
+    return filename
 
 if __name__ == "__main__":
-    create_plt_price("AAPL", "0")
-    create_candle_price("AAPL", "0")
+    create_plt_price("NVDA", 1)

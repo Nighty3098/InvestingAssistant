@@ -17,7 +17,7 @@ from db import (add_stock_to_db, check_user_account, create_connection,
                 get_city_from_db, get_users_stocks, registering_user,
                 remove_stock_from_db, update_stock_quantity)
 from kb_builder.user_panel import main_kb
-from plt_gen import create_candle_price, create_plt_price
+from plt_gen import create_plt_price
 from resources.messages import WELCOME_MESSAGE, register_message
 
 user_price_thread = {}

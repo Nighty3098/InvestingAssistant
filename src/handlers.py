@@ -197,114 +197,107 @@ async def answer(client, callback_query):
 
 @app.on_message(filters.private & filters.text)
 async def handle_stock_input(client, message):
-    try:
-        user_id = message.from_user.id
-        username = message.from_user.username or "unknown"
 
-        state = user_states.get(user_id)
+    user_id = message.from_user.id
+    username = message.from_user.username or "unknown"
+
+    state = user_states.get(user_id)
+    photo_path = "resources/header.png"
+
+    if state == "adding":
+        await process_adding_stocks(client, message, user_id, username)
+        await app.send_photo(
+            photo=photo_path,
+            chat_id=user_id,
+            caption="✅ Added successfully",
+            reply_markup=back_stocks_kb,
+            parse_mode=enums.ParseMode.MARKDOWN,
+        )
+    elif state == "removing":
+        await process_removing_stocks(client, message, user_id)
+        await app.send_photo(
+            photo=photo_path,
+            chat_id=user_id,
+            caption="✅ Removed successfully",
+            reply_markup=back_stocks_kb,
+            parse_mode=enums.ParseMode.MARKDOWN,
+        )
+
+    elif state == "news":
+        await app.delete_messages(chat_id=user_id, message_ids=news_sent_message.id)
+
+        data = message.text
+
+        results = start_parsing(data, user_id)
+        for result in results:
+            await notify_user(user_id, result)
+
         photo_path = "resources/header.png"
+        await app.send_photo(
+            photo=photo_path,
+            chat_id=user_id,
+            caption="__Done__",
+            reply_markup=back_kb,
+            parse_mode=enums.ParseMode.MARKDOWN,
+        )
+    elif state == "set_city":
+        await app.delete_messages(chat_id=user_id, message_ids=city_sent_message.id)
 
-        if state == "adding":
-            await process_adding_stocks(client, message, user_id, username)
-            await app.send_photo(
-                photo=photo_path,
-                chat_id=user_id,
-                caption="✅ Added successfully",
-                reply_markup=back_stocks_kb,
-                parse_mode=enums.ParseMode.MARKDOWN,
-            )
-        elif state == "removing":
-            await process_removing_stocks(client, message, user_id)
-            await app.send_photo(
-                photo=photo_path,
-                chat_id=user_id,
-                caption="✅ Removed successfully",
-                reply_markup=back_stocks_kb,
-                parse_mode=enums.ParseMode.MARKDOWN,
-            )
+        data = message.text
 
-        elif state == "news":
-            await app.delete_messages(chat_id=user_id, message_ids=news_sent_message.id)
+        add_city_to_db(user_id, data)
 
-            data = message.text
+        photo_path = "resources/header.png"
+        await app.send_photo(
+            photo=photo_path,
+            chat_id=user_id,
+            caption="__Done__",
+            reply_markup=back_kb,
+            parse_mode=enums.ParseMode.MARKDOWN,
+        )
 
-            results = start_parsing(data, user_id)
-            for result in results:
-                await notify_user(user_id, result)
+    elif state == "price":
+        from db import get_more_info, get_stock_info
+        from func import create_plt_price
 
-            photo_path = "resources/header.png"
-            await app.send_photo(
-                photo=photo_path,
-                chat_id=user_id,
-                caption="__Done__",
-                reply_markup=back_kb,
-                parse_mode=enums.ParseMode.MARKDOWN,
-            )
-        elif state == "set_city":
-            await app.delete_messages(chat_id=user_id, message_ids=city_sent_message.id)
+        await app.delete_messages(chat_id=user_id, message_ids=price_sent_message.id)
 
-            data = message.text
+        wait_message = await app.send_message(user_id, "⏳ Please wait...")
 
-            add_city_to_db(user_id, data)
+        data = message.text
 
-            photo_path = "resources/header.png"
-            await app.send_photo(
-                photo=photo_path,
-                chat_id=user_id,
-                caption="__Done__",
-                reply_markup=back_kb,
-                parse_mode=enums.ParseMode.MARKDOWN,
-            )
+        stock_name, stock_price = get_stock_info(data)
+        info = get_more_info(data)
 
-        elif state == "price":
-            from db import get_more_info, get_stock_info
-            from func import create_candle_price, create_plt_price
+        predictor = StockPredictor()
+        advice_message = predictor.analyze(data)
 
-            await app.delete_messages(
-                chat_id=user_id, message_ids=price_sent_message.id
-            )
+        predict_path = predictor.predict_plt(data, user_id)
+        image_path = create_plt_price(data, user_id)
 
-            wait_message = await app.send_message(user_id, "⏳ Please wait...")
+        images = []
+        images.append(InputMediaPhoto(image_path))
+        images.append(InputMediaPhoto(predict_path))
 
-            data = message.text
+        await app.delete_messages(chat_id=user_id, message_ids=wait_message.id)
+        await app.send_media_group(chat_id=user_id, media=images)
+        await app.send_message(
+            chat_id=user_id,
+            text=(
+                f"**{stock_name}**:\n\n"
+                f"Current price: {stock_price}$\n\n"
+                f"────────────────────────────\n"
+                # f"{info['recommendations']}\n\n"
+                # f"────────────────\n"
+                f"P/E ratio: {info['pe_ratio']}\n"
+                f"Target mean price: {info['target_mean_price']}$\n"
+                f"Target high price: {info['target_high_price']}$\n"
+                f"Target low price: {info['target_low_price']}$\n"
+                f"────────────────────────────\n"
+                f"{advice_message}"
+            ),
+            reply_markup=back_kb,
+            parse_mode=enums.ParseMode.MARKDOWN,
+        )
 
-            stock_name, stock_price = get_stock_info(data)
-            info = get_more_info(data)
-
-            predictor = StockPredictor()
-            advice_message = predictor.analyze(data)
-            predictor.predict_plt(data)
-
-            image_path = create_plt_price(data, user_id)
-            candle_path = create_candle_price(data, user_id)
-            predict_path = os.path.join(os.getcwd(), "price_prediction.png")
-
-            images = []
-            images.append(InputMediaPhoto(image_path))
-            images.append(InputMediaPhoto(predict_path))
-            images.append(InputMediaPhoto(candle_path))
-
-            await app.delete_messages(chat_id=user_id, message_ids=wait_message.id)
-            await app.send_media_group(chat_id=user_id, media=images)
-            await app.send_message(
-                chat_id=user_id,
-                text=(
-                    f"**{stock_name}**:\n\n"
-                    f"Current price: {stock_price}$\n\n"
-                    f"────────────────────────────\n"
-                    # f"{info['recommendations']}\n\n"
-                    # f"────────────────\n"
-                    f"P/E ratio: {info['pe_ratio']}\n"
-                    f"Target mean price: {info['target_mean_price']}$\n"
-                    f"Target high price: {info['target_high_price']}$\n"
-                    f"Target low price: {info['target_low_price']}$\n"
-                    f"────────────────────────────\n"
-                    f"{advice_message}"
-                ),
-                reply_markup=back_kb,
-                parse_mode=enums.ParseMode.MARKDOWN,
-            )
-
-        user_states[user_id] = None
-    except Exception as e:
-        logger.error(f"Error: {e}")
+    user_states[user_id] = None

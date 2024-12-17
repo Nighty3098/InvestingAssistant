@@ -28,6 +28,7 @@ tensorrt = "^10.7.0"
 mplfinance = "^0.12.10b0"
 joblib = "^1.4.2"
 scikit-learn = "^1.6.0"
+plotly = "^5.24.1"
 
 [build-system]
 requires = ["poetry-core"]
