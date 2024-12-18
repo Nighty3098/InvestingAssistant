@@ -5,3 +5,9 @@ src/IPSA.session
 src/IPSA.session-journal
 /src/kb_builder/__pycache__
 /src/resources/__pycache__
+src/stock_price_chart.png
+src/stock_candlestick.png
+src/stock_price_chart.png
+src/price_prediction.png
+src/stock.png
+/src/model/__pycache__

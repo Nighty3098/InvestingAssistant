@@ -12,6 +12,7 @@ from db import (create_connection, get_city_from_db, get_stocks_list,
                 process_stocks)
 from func import (convert_to_utc, get_time_difference, is_within_period,
                   notify_user, parse_time_period, to_local)
+from model.predict_influence import predict_price_influence
 
 links = [
     "https://ru.investing.com/news/",
@@ -99,6 +100,28 @@ def is_stocks_in_news(url, user_id, document_title, document_pre_text):
     return False
 
 
+def get_news_text(url):
+    headers = {"User-Agent": generate_user_agent()}
+    logger.debug(f"Generate user agent: {headers}")
+
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+
+        html = response.text
+        soup = bs4.BeautifulSoup(html, "html.parser")
+
+        paragraphs = soup.find_all("p")
+        article_text = "\n".join([para.text for para in paragraphs if para.text])
+
+        logger.debug(article_text)
+        return article_text
+
+    except Exception as e:
+        logger.error(e)
+        return ""
+
+
 def parse_investing_news(url, period, user_id):
     """Investing.com parser."""
 
@@ -151,7 +174,11 @@ def parse_investing_news(url, period, user_id):
                     seen_articles.add(unique_identifier)
                     time_difference = get_time_difference(date, timezone)
 
-                    result_string = f"\n\n🔥 **{title}**\n\n🌊 **{about}**\n\n✨ __{article_url}__\n\n📆 __{to_local(timezone, date)}__\n\n**{time_difference}**"
+                    text = get_news_text(article_url)
+
+                    influence = predict_price_influence(text)
+
+                    result_string = f"\n\n🔥 **{title}**\n\n✨ {influence}\n\n🌊 **{about}**\n\n✨ __{article_url}__\n\n📆 __{to_local(timezone, date)}__\n\n**{time_difference}**"
                     logger.debug(f"Adding {article_url} - {title} to results")
                     results.append(result_string)
 

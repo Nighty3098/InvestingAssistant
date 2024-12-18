@@ -9,6 +9,7 @@
   <a href="https://github.com/Nighty3098/InvestingAssistant/stargazers">
     <br><br>
     <a href="https://discord.gg/6xEc5WFK"><img src="https://img.shields.io/discord/1238858182403559505.svg?label=Discord&logo=Discord&style=for-the-badge&color=f5a7a0&logoColor=FFFFFF&labelColor=1c1c29"></img></a>
+    <br><br>
     <img class="badge" src="https://img.shields.io/github/issues/Nighty3098/InvestingAssistant?style=for-the-badge&color=dbb6ed&logoColor=ffffff&labelColor=1c1c29"  style="border-radius: 5px;"/>
     <img class="badge" src="https://img.shields.io/github/repo-size/Nighty3098/InvestingAssistant?style=for-the-badge&color=ea9de7&logoColor=D9E0EE&labelColor=171b22" style="border-radius: 5px;"/>
     <img class="badge" src="https://img.shields.io/github/stars/Nighty3098/InvestingAssistant?style=for-the-badge&color=eed49f&logoColor=D9E0EE&labelColor=1c1c29" style="border-radius: 5px;"/>
@@ -58,13 +59,13 @@ python3 main.py
 <div align="center">
 <br><br>
 <h1>ROADMAP</h1>
-<img src="https://github.com/user-attachments/assets/37a33c4b-99d5-4d95-b6ba-9af264ea537e" />
+<img src="https://github.com/user-attachments/assets/37a33c4b-99d5-4d95-b6ba-9af264ea537e" />    
 <br>
 <br>
 
 ### **`💵 Support me`**
 
-<img src="imgs/toncoin.png" width="45px"/>
+<img src="https://github.com/Nighty3098/CodeKeeper/blob/main/imgs/toncoin.png?raw=true" width="45px"/>
 <br>
 
 ***`UQCF-sPDO0QqkNtvy5CKSvYWEsZS6l7vzaytV36oYM0SNhKt`***
@@ -81,3 +82,27 @@ python3 main.py
 
 </details>
 </div>
+
+```mermaid
+graph TD;
+    A[Этап 1. Исследование и планирование] --> B[Анализ основных требований к проекту]
+    A --> C[Исследования технологий]
+    A --> D[Составление технического задания]
+
+    E[Этап 2. Дизайн и архитектура] --> F[Проектирование архитектуры проекта]
+    E --> G[Составление прототипа интерфейсов]
+    E --> H[Создание структуры базы данных]
+
+    I[Этап 3. Создание базового функционала] --> J[Составление диалогов с пользователем]
+    I --> K[Подключение базы данных]
+    I --> L[Работа с API и парсингом данных]
+
+    M[Этап 4. Разработка нейронной сети] --> N[Сбор и подготовка данных для обучения]
+    M --> O[Обучение и тестирование модели]
+    M --> P[Интеграция модели в бота]
+
+    Q[Этап 5. Запуск и развертывание] --> R[Создание Docker контейнеров]
+    Q --> S[Развертывание проекта на сервере]
+    Q --> T[Маркетинг и пиар]
+    Q --> U[Введение платной подписки]
+```
