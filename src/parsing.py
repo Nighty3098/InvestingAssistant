@@ -12,7 +12,7 @@ from db import (create_connection, get_city_from_db, get_stocks_list,
                 process_stocks)
 from func import (convert_to_utc, get_time_difference, is_within_period,
                   notify_user, parse_time_period, to_local)
-from model.predict_influence import predict_price_influence
+from model.influence_core import predict_price_influence
 
 links = [
     "https://ru.investing.com/news/",
@@ -178,7 +178,7 @@ def parse_investing_news(url, period, user_id):
 
                     influence = predict_price_influence(text)
 
-                    result_string = f"\n\n🔥 **{title}**\n\n✨ {influence}\n\n🌊 **{about}**\n\n✨ __{article_url}__\n\n📆 __{to_local(timezone, date)}__\n\n**{time_difference}**"
+                    result_string = f"\n\n🔥 **{title}**\n────────────────────────────\n✨ {influence}\n\n🌊 **{about}**\n────────────────────────────\n__{article_url}__\n\n📆 __{to_local(timezone, date)}__"
                     logger.debug(f"Adding {article_url} - {title} to results")
                     results.append(result_string)
 

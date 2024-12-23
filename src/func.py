@@ -91,13 +91,17 @@ async def check_stock_prices(user_id):
                     f"Error getting stock price for: {stock_name} {current_price}"
                 )
             else:
-                if float(current_price) != float(stock_prices[stock_name]):
-                    if float(current_price) < float(stock_prices[stock_name]):
-                        label = "🔴"
-                    elif float(current_price) > float(stock_prices[stock_name]):
-                        label = "🟢"
+                old_price = float(stock_prices[stock_name])
+                new_price = float(current_price)
+                price_diff = abs((new_price - old_price) / old_price) * 100
+
+                if price_diff > 3:
+                    if new_price < old_price:
+                        label = "🔴 "
+                    elif new_price > old_price:
+                        label = "🟢 "
                     else:
-                        label = "🟡"
+                        label = "🟡 "
                     logger.info(
                         f"New message for {user_id}: Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}"
                     )
@@ -110,8 +114,6 @@ async def check_stock_prices(user_id):
                     logger.info(
                         f"Updated old stock price from {stock_prices[stock_name]} to {current_price}"
                     )
-                else:
-                    pass
         time.sleep(5)
 
 

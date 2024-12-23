@@ -20,7 +20,7 @@ from func import (log_resource_usage, notify_user, process_adding_stocks,
                   start_price_monitor_thread)
 from kb_builder.user_panel import (back_kb, back_stocks_kb, main_kb,
                                    register_user_kb, stocks_management_kb)
-from model.core import StockPredictor
+from model.price_core import StockPredictor
 from parsing import (check_new_articles, parse_investing_news,
                      run_check_new_articles, start_parsing)
 from resources.messages import (ASSETS_MESSAGE, WELCOME_MESSAGE,
@@ -53,8 +53,8 @@ async def start(client, message):
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
 
-            start_parsing_thread(user_id)
-            start_price_monitor_thread(user_id)
+            # start_parsing_thread(user_id)
+            # start_price_monitor_thread(user_id)
 
         else:
             photo_path = "resources/header.png"
@@ -275,15 +275,16 @@ async def handle_stock_input(client, message):
         predict_path = predictor.predict_plt(data, user_id)
         image_path = create_plt_price(data, user_id)
 
-        images = []
-        images.append(InputMediaPhoto(image_path))
-        images.append(InputMediaPhoto(predict_path))
+        # images = []
+        # images.append(InputMediaPhoto(image_path))
+        # images.append(InputMediaPhoto(predict_path))
 
         await app.delete_messages(chat_id=user_id, message_ids=wait_message.id)
-        await app.send_media_group(chat_id=user_id, media=images)
-        await app.send_message(
+        # await app.send_media_group(chat_id=user_id, media=images)
+        await app.send_photo(
             chat_id=user_id,
-            text=(
+            photo=predict_path,
+            caption=(
                 f"**{stock_name}**:\n\n"
                 f"Current price: {stock_price}$\n\n"
                 f"────────────────────────────\n"
