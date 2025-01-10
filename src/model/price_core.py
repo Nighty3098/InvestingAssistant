@@ -6,9 +6,9 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import tensorflow as tf  # Импортируем TensorFlow для управления сессиями
 import yfinance as yf
 from keras.models import load_model
-import tensorflow as tf  # Импортируем TensorFlow для управления сессиями
 
 
 class StockPredictor:
@@ -54,7 +54,9 @@ class StockPredictor:
 
         # Создаем массив для обратного преобразования с правильной формой
         last_day_features = last_365_days_scaled[-1].copy()  # Копируем последний день
-        last_day_features[1] = predicted_price[0][0]  # Заменяем цену закрытия на предсказанную
+        last_day_features[1] = predicted_price[0][
+            0
+        ]  # Заменяем цену закрытия на предсказанную
 
         # Выполняем обратное преобразование
         predicted_price_unscaled = self.scaler.inverse_transform(
@@ -104,7 +106,7 @@ class StockPredictor:
 
     def predict_plt(self, ticker, user_id):
         predicted_price = self.predict_price(ticker)
-        
+
         historical_data = yf.download(ticker, period="6mo")
 
         if historical_data.empty:
@@ -122,7 +124,7 @@ class StockPredictor:
             historical_data["Open"],
             label="Historical Open Price",
             color="blue",
-            alpha=0.6  # Уменьшаем непрозрачность для экономии памяти
+            alpha=0.6,  # Уменьшаем непрозрачность для экономии памяти
         )
 
         plt.plot(
@@ -130,7 +132,7 @@ class StockPredictor:
             historical_data["Close"],
             label="Historical Close Price",
             color="red",
-            alpha=0.6  # Уменьшаем непрозрачность для экономии памяти
+            alpha=0.6,  # Уменьшаем непрозрачность для экономии памяти
         )
 
         future_dates = [
@@ -145,7 +147,7 @@ class StockPredictor:
             color="orange",
             label="Predicted Price",
             linestyle="--",
-            alpha=0.8  # Уменьшаем непрозрачность для экономии памяти
+            alpha=0.8,  # Уменьшаем непрозрачность для экономии памяти
         )
 
         plt.scatter(
@@ -154,16 +156,16 @@ class StockPredictor:
             color="purple",
             label="Min Forecast",
             zorder=5,
-            s=50  # Увеличиваем размер точки для лучшей видимости
+            s=50,  # Увеличиваем размер точки для лучшей видимости
         )
-        
+
         plt.scatter(
             future_dates[0],
             max_forecast,
             color="gold",
             label="Max Forecast",
             zorder=5,
-            s=50  # Увеличиваем размер точки для лучшей видимости
+            s=50,  # Увеличиваем размер точки для лучшей видимости
         )
 
         plt.axhline(
@@ -173,10 +175,7 @@ class StockPredictor:
             label="Min Forecast Boundary",
         )
         plt.axhline(
-            y=max_forecast,
-            color="gold",
-            linestyle="--",
-            label="Max Forecast Boundary"
+            y=max_forecast, color="gold", linestyle="--", label="Max Forecast Boundary"
         )
 
         plt.text(
