@@ -34,7 +34,7 @@ class StockPredictor:
         )
 
         last_365_days = data[
-            ["Open", "Close", "High", "Low", "Adj Close", "Volume"]
+            ["Open", "Close", "High", "Low", "Volume"]
         ].values[-365:]
 
         # Масштабируем данные
@@ -63,10 +63,10 @@ class StockPredictor:
             np.array([last_day_features])
         )
 
-        return predicted_price_unscaled[0][1]  # Вернем предсказанную цену закрытия
+        return predicted_price_unscaled[0][1], predicted_price_unscaled[0][0]   # Вернем предсказанную цену закрытия
 
     def analyze(self, ticker, threshold=0.05):
-        predicted_price = self.predict_price(ticker)
+        predicted_price, predicted_probability = self.predict_price(ticker)
 
         current_price_data = yf.download(ticker, period="1d")["Close"]
 
@@ -89,7 +89,7 @@ class StockPredictor:
         predicted_price = float(predicted_price)
 
         # Form the message
-        message = f"Predicted price for {ticker} next month: {predicted_price:.2f}$\nCurrent price: {current_price:.2f}$\n"
+        message = f"Predicted price for {ticker} next month: {predicted_price:.2f}$\nCurrent price: {current_price:.2f}$\nProblatiry: {predicted_probability}%"
 
         price_change_percentage = (predicted_price - current_price) / current_price
 
@@ -105,7 +105,7 @@ class StockPredictor:
         return message
 
     def predict_plt(self, ticker, user_id):
-        predicted_price = self.predict_price(ticker)
+        predicted_price, predicted_probability = self.predict_price(ticker)
 
         historical_data = yf.download(ticker, period="6mo")
 
