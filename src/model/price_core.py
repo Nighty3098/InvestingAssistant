@@ -46,24 +46,16 @@ class StockPredictor:
         X_test = np.array(X_test)
         X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], X_test.shape[2]))
 
-        # Предсказание цены
-        predicted_price = self.model.predict(X_test)
+        # Предсказание вероятности
+        predicted_probabilities = self.model.predict(X_test)
 
         # Освобождаем память после предсказания
         tf.keras.backend.clear_session()
 
-        # Создаем массив для обратного преобразования с правильной формой
-        last_day_features = last_365_days_scaled[-1].copy()  # Копируем последний день
-        last_day_features[1] = predicted_price[0][
-            0
-        ]  # Заменяем цену закрытия на предсказанную
+        # Определяем предсказанную цену на основе вероятности
+        predicted_price = last_365_days[-1, 1] * (1 + (predicted_probabilities[0][0] - 0.5) * 0.1)  # Примерный расчет
 
-        # Выполняем обратное преобразование
-        predicted_price_unscaled = self.scaler.inverse_transform(
-            np.array([last_day_features])
-        )
-
-        return predicted_price_unscaled[0][1], predicted_price_unscaled[0][0]   # Вернем предсказанную цену закрытия
+        return predicted_price, predicted_probabilities[0][0]  # Вернем предсказанную цену и вероятность
 
     def analyze(self, ticker, threshold=0.05):
         predicted_price, predicted_probability = self.predict_price(ticker)
@@ -79,17 +71,12 @@ class StockPredictor:
         if isinstance(current_price, pd.Series):
             current_price = current_price.iloc[0]
 
-        if isinstance(predicted_price, np.ndarray):
-            predicted_price = predicted_price[0]
-        elif isinstance(predicted_price, pd.Series):
-            predicted_price = predicted_price.iloc[0]
-
         # Ensure both prices are floats
         current_price = float(current_price)
         predicted_price = float(predicted_price)
 
         # Form the message
-        message = f"Predicted price for {ticker} next month: {predicted_price:.2f}$\nCurrent price: {current_price:.2f}$\nProblatiry: {predicted_probability}%"
+        message = f"Predicted price for {ticker} next month: {predicted_price:.2f}$\nCurrent price: {current_price:.2f}$\nProbability of price increase: {predicted_probability:.2f}"
 
         price_change_percentage = (predicted_price - current_price) / current_price
 
@@ -101,7 +88,6 @@ class StockPredictor:
             message += "Advice: Sell"
         else:
             message += "Advice: Wait"
-
         return message
 
     def predict_plt(self, ticker, user_id):
