@@ -76,7 +76,9 @@ class StockPredictor:
         predicted_price = float(predicted_price)
 
         # Form the message
-        message = f"Predicted price for {ticker} next month: {predicted_price:.2f}$\nCurrent price: {current_price:.2f}$\nProbability of price increase: {predicted_probability:.2f}"
+        message = f"Predicted price for {ticker} next month: {predicted_price:.2f}$\nCurrent price: {current_price:.2f}$\n"
+
+        print(f"Probability of price increase: {predicted_probability:.2f}")
 
         price_change_percentage = (predicted_price - current_price) / current_price
 
