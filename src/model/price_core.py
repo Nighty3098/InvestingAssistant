@@ -34,7 +34,7 @@ class StockPredictor:
         )
 
         last_365_days = data[
-            ["Open", "Close", "High", "Low", "Volume"]
+            ["Open", "Close", "High", "Low", "Adj Close", "Volume"]
         ].values[-365:]
 
         # Масштабируем данные
