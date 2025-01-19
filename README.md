@@ -22,6 +22,8 @@
 
 <br><br><br>
 
+> ONLY FOR PYTHON12
+
 #### Install Poetry:
 
 

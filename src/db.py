@@ -87,6 +87,7 @@ def create_users_table(connection):
             username TEXT,
             language INTEGER,
             network_tokens INTEGER,
+            role TEXT,
             city TEXT)"""
         )
         connection.commit()
@@ -136,8 +137,8 @@ def registering_user(connection, user_id, username):
         cursor = connection.cursor()
 
         cursor.execute(
-            "INSERT INTO users (user_id, username, city, network_tokens) VALUES (?, ?, ?, ?)",
-            (user_id, username, "Europe/Moscow", 10),
+            "INSERT INTO users (user_id, username, city, network_tokens, role) VALUES (?, ?, ?, ?, ?)",
+            (user_id, username, "Europe/Moscow", 10, "user"),
         )
 
         connection.commit()
@@ -161,6 +162,20 @@ def remove_account(connection, user_id):
             logger.warning(f"User with user_id {user_id} deleted successfully")
         except Exception as e:
             logger.error(f"Error '{e}' while deleting user with user_id {user_id}")
+
+def get_user_role(connection, user_id):
+    try:
+        cursor = connection.cursor()
+        cursor.execute("SELECT role FROM users WHERE user_id = ?", (user_id,))
+        result = cursor.fetchone()
+
+        if result is not None:
+            return result[0]
+        else:
+            return ""
+    except Exception as e:
+        logger.error(f"Error fetching network tokens for user_id {user_id}: {e}")
+        return ""
 
 def get_network_tokens(connection, user_id):
     try:

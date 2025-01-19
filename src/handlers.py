@@ -6,14 +6,14 @@ import time
 from threading import Thread
 
 from pyrogram import Client, enums, filters
-from pyrogram.types import InputMediaPhoto
+from pyrogram.types import InputMediaPhoto, Message
 
 from config import (API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file,
                     logger)
 from db import (add_city_to_db, add_stock_to_db, check_user_account,
                 create_connection, create_table, create_users_table,
                 get_users_stocks, registering_user, remove_stock_from_db, get_id_by_username,
-                update_stock_quantity, remove_account, get_network_tokens, update_tokens)
+                update_stock_quantity, remove_account, get_network_tokens, update_tokens, get_user_role)
 from func import (log_resource_usage, notify_user, process_adding_stocks,
                   process_removing_stocks, register_user, send_images,
                   start_monitoring_thread, start_parsing_thread,
@@ -71,17 +71,25 @@ async def start(client, message):
 
 @app.on_message(filters.command("send_tokens"))
 async def send_tokens_command(client: Client, message: Message):
-    args = message.command[1:]
-    if len(args) != 2:
-        await message.reply("Use format: /send_tokens %username% %tokens%")
-        return
+    if(message.from_user.username == "Night3098"):
+        try:
+            args = message.command[1:]
+            if len(args) != 2:
+                await message.reply("Use format: /send_tokens username tokens")
+                return
 
-    username = args[0]
-    tokens = args[1]
+            username = args[0]
+            tokens = args[1]
 
-    id = get_id_by_username(create_connection(), username)
-    update_tokens(create_connection(), id, tokens)
+            id = get_id_by_username(create_connection(), username)
+            update_tokens(create_connection(), id, tokens)
 
+            await app.send_message(chat_id=id, text=f"You have received {tokens} tokens")
+        except Exception as e:
+            logger.error(f"Error: {e}")
+        
+    else:
+        await message.reply("You are not an admin")
 
 @app.on_callback_query()
 async def answer(client, callback_query):
@@ -106,7 +114,10 @@ async def answer(client, callback_query):
             else :
                 user_states[user_id] = "price"
 
-                message = f"You have {tokens} free tokens\n\n{check_price}"
+                update_tokens(create_connection(), user_id, "-1")
+                updated_tokens = get_network_tokens(create_connection(), user_id)
+
+                message = f"You have {updated_tokens} free tokens\n\n{check_price}"
                 price_sent_message = await callback_query.message.edit_text(
                     message,
                     parse_mode=enums.ParseMode.MARKDOWN,
@@ -337,9 +348,6 @@ async def handle_stock_input(client, message):
 
         predict_path = predictor.predict_plt(data, user_id)
         image_path = create_plt_price(data, user_id)
-
-        update_tokens(create_connection(), user_id, "-1")
-        updated_tokens = get_network_tokens(create_connection(), user_id)
 
         await app.delete_messages(chat_id=user_id, message_ids=wait_message.id)
         await app.send_photo(
