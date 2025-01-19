@@ -114,10 +114,7 @@ async def answer(client, callback_query):
             else :
                 user_states[user_id] = "price"
 
-                update_tokens(create_connection(), user_id, "-1")
-                updated_tokens = get_network_tokens(create_connection(), user_id)
-
-                message = f"You have {updated_tokens} free tokens\n\n{check_price}"
+                message = f"You have {tokens} free tokens\n\n{check_price}"
                 price_sent_message = await callback_query.message.edit_text(
                     message,
                     parse_mode=enums.ParseMode.MARKDOWN,
@@ -349,6 +346,9 @@ async def handle_stock_input(client, message):
         predict_path = predictor.predict_plt(data, user_id)
         image_path = create_plt_price(data, user_id)
 
+        update_tokens(create_connection(), user_id, "-1")
+        updated_tokens = get_network_tokens(create_connection(), user_id)
+
         await app.delete_messages(chat_id=user_id, message_ids=wait_message.id)
         await app.send_photo(
             chat_id=user_id,
@@ -365,7 +365,7 @@ async def handle_stock_input(client, message):
                 #f"Target high price: {info['target_high_price']}$\n"
                 #f"Target low price: {info['target_low_price']}$\n"
                 #f"────────────────────────────\n"
-                f"{advice_message}"
+                f"{advice_message}\n"
                 f"────────────────────────────\n"
                 f"You have {updated_tokens} tokens left"
             ),
