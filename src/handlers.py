@@ -13,13 +13,13 @@ from config import (API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file,
 from db import (add_city_to_db, add_stock_to_db, check_user_account,
                 create_connection, create_table, create_users_table,
                 get_users_stocks, registering_user, remove_stock_from_db,
-                update_stock_quantity)
+                update_stock_quantity, remove_account)
 from func import (log_resource_usage, notify_user, process_adding_stocks,
                   process_removing_stocks, register_user, send_images,
                   start_monitoring_thread, start_parsing_thread,
                   start_price_monitor_thread)
 from kb_builder.user_panel import (back_kb, back_stocks_kb, main_kb,
-                                   register_user_kb, stocks_management_kb)
+                                   register_user_kb, stocks_management_kb, settings_kb, confirm_delete_account)
 from model.price_core import StockPredictor
 from parsing import (check_new_articles, parse_investing_news,
                      run_check_new_articles, start_parsing)
@@ -27,7 +27,7 @@ from resources.messages import (ASSETS_MESSAGE, WELCOME_MESSAGE,
                                 add_asset_request, check_price, collect_data,
                                 get_news_period, get_users_city,
                                 not_register_message, register_message,
-                                remove_asset_request)
+                                remove_asset_request, confirm_delete_account_message, select_lang_dialog)
 
 user_states = {}
 
@@ -104,6 +104,44 @@ async def answer(client, callback_query):
                 reply_markup=main_kb,
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
+
+        if data == "settings":
+            logger.info(f"settings: {user_id} - {username}")
+
+            message = "🛠 Settings 🛠"
+
+            await callback_query.message.edit_text(
+                message,
+                reply_markup=settings_kb,
+                parse_mode=enums.ParseMode.MARKDOWN,
+            )
+
+        if data == "remove_account_dialog":
+            logger.info(f"remove_account_dialog: {user_id} - {username}")
+
+            message = f"Dear, {username}\n{confirm_delete_account_message}"
+
+            await callback_query.message.edit_text(
+                message,
+                reply_markup=confirm_delete_account,
+                parse_mode=enums.ParseMode.MARKDOWN,
+            )
+
+        if data == "select_language":
+            logger.info(f"select_language: {user_id} - {username}")
+
+            message = f"Dear, {username}\n{select_lang_dialog}"
+
+            await callback_query.message.edit_text(
+                message,
+                reply_markup=select_language,
+                parse_mode=enums.ParseMode.MARKDOWN,
+            )
+
+        if data == "remove_account":
+            logger.info(f"remove_account: {user_id} - {username}")
+
+            remove_account(create_connection(), user_id)
 
         if data == "my_stocks":
             logger.info(f"my_stocks: {user_id} - {username}")

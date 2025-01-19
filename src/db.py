@@ -84,6 +84,7 @@ def create_users_table(connection):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             username TEXT,
+            language INTEGER,
             city TEXT)"""
         )
         connection.commit()
@@ -98,11 +99,12 @@ def create_table(connection):
         cursor = connection.cursor()
         cursor.execute(
             """CREATE TABLE IF NOT EXISTS stocks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
-            username TEXT,
             stock_name TEXT,
             quantity INTEGER,
-            PRIMARY KEY (user_id, stock_name)
+            FOREIGN KEY (user_id) REFERENCES user(id)
+            UNIQUE (user_id, stock_name)
         )"""
         )
         connection.commit()
@@ -134,7 +136,7 @@ def registering_user(connection, user_id, username):
 
         cursor.execute(
             "INSERT INTO users (user_id, username, city) VALUES (?, ?, ?)",
-            (user_id, username, "Asia/Novosibirsk"),
+            (user_id, username, "Europe/Moscow"),
         )
 
         connection.commit()
@@ -146,11 +148,25 @@ def registering_user(connection, user_id, username):
         logger.error(f"Error '{e}' while registering user")
 
 
+def remove_account(connection, user_id):
+        """Remove user's account"""
+        try:
+            cursor = connection.cursor()
+
+            cursor.execute("DELETE FROM stocks WHERE user_id = ?", (user_id,))
+            cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+
+            connection.commit()
+            logger.warning(f"User with user_id {user_id} deleted successfully")
+        except Exception as e:
+            logger.error(f"Error '{e}' while deleting user with user_id {user_id}")
+
+
 def get_stocks(connection, user_id):
     cursor = connection.cursor()
 
     cursor.execute(
-        "SELECT stock_name, quantity FROM stocks WHERE user_id=?", (user_id,)
+        "SELECT stock_name FROM stocks WHERE user_id=?", (user_id,)
     )
     rows = cursor.fetchall()
 
@@ -159,12 +175,13 @@ def get_stocks(connection, user_id):
     for row in rows:
         stock_name = row[0]
         stock_price = get_stock_info(stock_name)[1]
-        stock_prices[stock_name] = stock_price
+
+        if stock_price is not None:
+            stock_prices[stock_name] = stock_price
 
         logger.debug(f"{user_id}: {stock_name} - {stock_price}")
 
     return stock_prices
-
 
 def get_stocks_list(connection, user_id):
     cursor = connection.cursor()
@@ -175,6 +192,7 @@ def get_stocks_list(connection, user_id):
     rows = cursor.fetchall()
 
     return [(row[0], row[1]) for row in rows]
+
 
 
 def process_stocks(connection, user_id):
@@ -196,7 +214,6 @@ def process_stocks(connection, user_id):
 
     return stocks_info_list
 
-
 def get_users_stocks(connection, user_id):
     response_message = ""
     try:
@@ -215,29 +232,25 @@ def get_users_stocks(connection, user_id):
             return response_message
 
         for index, row in enumerate(rows):
-            try:
-                stock_name, stock_price = get_stock_info(row[0])
+            stock_name = row[0]
+            quantity = row[1]
+            stock_price = get_stock_info(stock_name)[1] or 0
 
-                if stock_price == "Price not found":
-                    stock_price = 0
-
-                response_message += f"🚀 **{row[0]} - {stock_name} - {stock_price}$**\n__💵 {row[1]} = {round(float(row[1]) * float(stock_price), 2)}$__\n\n"
-                logger.info(
-                    f"Stocks: {row[0]} - {stock_name} - {stock_price}$: {row[1]} = {float(row[1]) * float(stock_price)}"
-                )
-            except Exception as err:
-                logger.error("Error while getting stock: " + str(err))
-                response_message += f"{row[0]}: {row[1]}\n"
-                logger.info(f"Stocks: {row[0]} - {row[1]} for {user_id}")
+            response_message += (
+                f"🚀 **{stock_name} - {stock_price}$**\n"
+                f"__💵 {quantity} = {round(float(quantity) * float(stock_price), 2)}$__\n\n"
+            )
+            logger.info(f"Stocks: {stock_name} - {stock_price}$: {quantity} = {float(quantity) * float(stock_price)}")
 
             percent_complete = (index + 1) / total_stocks * 100
             logger.debug(f"Progress: {percent_complete:.2f}%")
 
-        connection.close()
     except Exception as e:
         logger.error(f"Error '{e}' while getting user's stocks")
 
     return response_message
+
+
 
 
 def add_stock_to_db(user_id, username, stock_name, quantity):
@@ -246,11 +259,11 @@ def add_stock_to_db(user_id, username, stock_name, quantity):
     try:
         cursor.execute(
             """
-            INSERT INTO stocks (user_id, username, stock_name, quantity)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO stocks (user_id, stock_name, quantity)
+            VALUES (?, ?, ?)
             ON CONFLICT(user_id, stock_name) DO UPDATE SET quantity = quantity + excluded.quantity
-        """,
-            (user_id, username, stock_name, quantity),
+            """,
+            (user_id, stock_name, quantity),
         )
         conn.commit()
         return True
@@ -260,7 +273,6 @@ def add_stock_to_db(user_id, username, stock_name, quantity):
     finally:
         conn.close()
 
-
 def remove_stock_from_db(user_id, stock_name):
     conn = create_connection()
     cursor = conn.cursor()
@@ -268,7 +280,7 @@ def remove_stock_from_db(user_id, stock_name):
         cursor.execute(
             """
             DELETE FROM stocks WHERE user_id = ? AND stock_name = ?
-        """,
+            """,
             (user_id, stock_name),
         )
         conn.commit()
@@ -279,7 +291,6 @@ def remove_stock_from_db(user_id, stock_name):
     finally:
         conn.close()
 
-
 def update_stock_quantity(user_id, stock_name, quantity):
     conn = create_connection()
     cursor = conn.cursor()
@@ -288,14 +299,15 @@ def update_stock_quantity(user_id, stock_name, quantity):
             """
             UPDATE stocks SET quantity = quantity - ?
             WHERE user_id = ? AND stock_name = ?
-        """,
+            """,
             (quantity, user_id, stock_name),
         )
 
+        # Удаление акций с нулевым или отрицательным количеством
         cursor.execute(
             """
             DELETE FROM stocks WHERE user_id = ? AND stock_name = ? AND quantity <= 0
-        """,
+            """,
             (user_id, stock_name),
         )
 
@@ -306,6 +318,7 @@ def update_stock_quantity(user_id, stock_name, quantity):
         return False
     finally:
         conn.close()
+
 
 
 def id_by_user_id(user_id):

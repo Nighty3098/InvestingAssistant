@@ -11,7 +11,7 @@ psutil==6.1.0
 pytz==2024.2
 matplotlib==3.10.0
 keras==3.7.0
-tensorflow[and-cuda]==2.18.0
+tensorflow==2.18.0
 transformers==4.47.0
 tensorrt==10.7.0
 mplfinance==0.12.10b0
