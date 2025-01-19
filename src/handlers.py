@@ -12,8 +12,8 @@ from config import (API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file,
                     logger)
 from db import (add_city_to_db, add_stock_to_db, check_user_account,
                 create_connection, create_table, create_users_table,
-                get_users_stocks, registering_user, remove_stock_from_db,
-                update_stock_quantity, remove_account)
+                get_users_stocks, registering_user, remove_stock_from_db, get_id_by_username,
+                update_stock_quantity, remove_account, get_network_tokens, update_tokens)
 from func import (log_resource_usage, notify_user, process_adding_stocks,
                   process_removing_stocks, register_user, send_images,
                   start_monitoring_thread, start_parsing_thread,
@@ -27,7 +27,7 @@ from resources.messages import (ASSETS_MESSAGE, WELCOME_MESSAGE,
                                 add_asset_request, check_price, collect_data,
                                 get_news_period, get_users_city,
                                 not_register_message, register_message,
-                                remove_asset_request, confirm_delete_account_message, select_lang_dialog)
+                                remove_asset_request, confirm_delete_account_message, hvnt_network_tokens, select_lang_dialog)
 
 user_states = {}
 
@@ -69,6 +69,19 @@ async def start(client, message):
     except Exception as e:
         logger.error(f"Error: {e}")
 
+@app.on_message(filters.command("send_tokens"))
+async def send_tokens_command(client: Client, message: Message):
+    args = message.command[1:]
+    if len(args) != 2:
+        await message.reply("Use format: /send_tokens %username% %tokens%")
+        return
+
+    username = args[0]
+    tokens = args[1]
+
+    id = get_id_by_username(create_connection(), username)
+    update_tokens(create_connection(), id, tokens)
+
 
 @app.on_callback_query()
 async def answer(client, callback_query):
@@ -80,13 +93,25 @@ async def answer(client, callback_query):
 
             logger.info(f"get_price: {user_id} - {username}")
 
-            user_states[user_id] = "price"
+            tokens = get_network_tokens(create_connection(), user_id)
 
-            price_sent_message = await callback_query.message.edit_text(
-                check_price,
-                parse_mode=enums.ParseMode.MARKDOWN,
-                reply_markup=back_kb,
-            )
+            logger.debug(f"User ID: {user_id}, user: {username}, tokens: {tokens}")
+
+            if (tokens) < 1:
+                price_sent_message = await callback_query.message.edit_text(
+                    hvnt_network_tokens,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                    reply_markup=back_kb,
+                )
+            else :
+                user_states[user_id] = "price"
+
+                message = f"You have {tokens} free tokens\n\n{check_price}"
+                price_sent_message = await callback_query.message.edit_text(
+                    message,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                    reply_markup=back_kb,
+                )
 
         if data == "to_main":
             logger.info(f"to_main: {user_id} - {username}")
@@ -313,12 +338,10 @@ async def handle_stock_input(client, message):
         predict_path = predictor.predict_plt(data, user_id)
         image_path = create_plt_price(data, user_id)
 
-        # images = []
-        # images.append(InputMediaPhoto(image_path))
-        # images.append(InputMediaPhoto(predict_path))
+        update_tokens(create_connection(), user_id, "-1")
+        updated_tokens = get_network_tokens(create_connection(), user_id)
 
         await app.delete_messages(chat_id=user_id, message_ids=wait_message.id)
-        # await app.send_media_group(chat_id=user_id, media=images)
         await app.send_photo(
             chat_id=user_id,
             photo=predict_path,
@@ -326,14 +349,17 @@ async def handle_stock_input(client, message):
                 f"**{stock_name}**:\n\n"
                 f"Current price: {stock_price}$\n\n"
                 f"────────────────────────────\n"
-                # f"{info['recommendations']}\n\n"
-                # f"────────────────\n"
+                f"Market cap: {info['market_cap']}\n"
+                f"Dividend yield: {info['dividend_yield']}\n"
                 f"P/E ratio: {info['pe_ratio']}\n"
-                f"Target mean price: {info['target_mean_price']}$\n"
-                f"Target high price: {info['target_high_price']}$\n"
-                f"Target low price: {info['target_low_price']}$\n"
-                f"────────────────────────────\n"
+                f"EPS: {info['eps']}\n"
+                #f"Target mean price: {info['target_mean_price']}$\n"
+                #f"Target high price: {info['target_high_price']}$\n"
+                #f"Target low price: {info['target_low_price']}$\n"
+                #f"────────────────────────────\n"
                 f"{advice_message}"
+                f"────────────────────────────\n"
+                f"You have {updated_tokens} tokens left"
             ),
             reply_markup=back_kb,
             parse_mode=enums.ParseMode.MARKDOWN,

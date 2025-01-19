@@ -51,7 +51,7 @@ Novosibirsk: `Asia/Novosibirsk`
 """
 
 check_price = """
-📊 Enter the name of the stock you want to check price. 📊
+Enter the name of the stock you want to check price.
 """
 
 confirm_delete_account_message = """
@@ -60,3 +60,7 @@ If you delete an account linked to your TG, you will lose all data in the bot wi
 
 select_lang_dialog = """
 🌍 Select lang: """
+
+hvnt_network_tokens = """
+You have run out of free tokens. To continue, subscribe and contact the administrator
+"""

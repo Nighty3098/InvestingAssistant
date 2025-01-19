@@ -3,6 +3,7 @@ import os
 import sqlite3
 
 import yfinance as yf
+from matplotlib.backend_bases import cursors
 
 from config import home_dir, logger
 
@@ -85,13 +86,13 @@ def create_users_table(connection):
             user_id INTEGER,
             username TEXT,
             language INTEGER,
+            network_tokens INTEGER,
             city TEXT)"""
         )
         connection.commit()
         logger.info("Users table created successfully")
     except Exception as e:
         logger.error(f"Error '{e}' while creating users table")
-
 
 def create_table(connection):
     """Create tables if they do not exist"""
@@ -135,8 +136,8 @@ def registering_user(connection, user_id, username):
         cursor = connection.cursor()
 
         cursor.execute(
-            "INSERT INTO users (user_id, username, city) VALUES (?, ?, ?)",
-            (user_id, username, "Europe/Moscow"),
+            "INSERT INTO users (user_id, username, city, network_tokens) VALUES (?, ?, ?, ?)",
+            (user_id, username, "Europe/Moscow", 10),
         )
 
         connection.commit()
@@ -160,6 +161,57 @@ def remove_account(connection, user_id):
             logger.warning(f"User with user_id {user_id} deleted successfully")
         except Exception as e:
             logger.error(f"Error '{e}' while deleting user with user_id {user_id}")
+
+def get_network_tokens(connection, user_id):
+    try:
+        cursor = connection.cursor()
+        cursor.execute("SELECT network_tokens FROM users WHERE user_id = ?", (user_id,))
+        result = cursor.fetchone()
+
+        if result is not None:
+            return result[0]
+        else:
+            return 0
+    except Exception as e:
+        logger.error(f"Error fetching network tokens for user_id {user_id}: {e}")
+        return 0
+
+def update_tokens(connection, user_id, token_change):
+    sign = token_change[0]
+    amount = int(token_change[1:])
+
+    if sign == "+":
+        update_query = "UPDATE users SET network_tokens = network_tokens + ? WHERE user_id = ?"
+        params = (amount, user_id)
+    elif sign == "-":
+        update_query = "UPDATE users SET network_tokens = network_tokens - ? WHERE user_id = ?"
+        params = (amount, user_id)
+    else:
+        raise ValueError("Invalid token change format. Use '+<number>' or '-<number>'.")
+
+    try:
+        cursor = connection.cursor()
+        cursor.execute(update_query, params)
+        connection.commit()
+        logger.info(f"Updated network_tokens for user_id {user_id}: {token_change}")
+        return True
+    except Exception as e:
+        logger.error(f"Error updating network_tokens: {e}")
+        return False
+
+def get_id_by_username(connection, username):
+    try:
+        cursor = connection.cursor()
+        cursor.execute("SELECT user_id FROM users WHERE username = ?", (username,))
+        result = cursor.fetchone()
+
+        if result is not None:
+            return result[0]
+        else:
+            return 0
+    except Exception as e:
+        logger.error(f"Error fetching network tokens for username {username}: {e}")
+        return 0
 
 
 def get_stocks(connection, user_id):
