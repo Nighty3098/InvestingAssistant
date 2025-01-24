@@ -53,8 +53,8 @@ async def start(client, message):
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
 
-            # start_parsing_thread(user_id)
-            # start_price_monitor_thread(user_id)
+            start_parsing_thread(user_id)
+            start_price_monitor_thread(user_id)
 
         else:
             photo_path = "resources/header.png"
@@ -361,7 +361,7 @@ async def handle_stock_input(client, message):
                 f"Dividend yield: {info['dividend_yield']}\n"
                 f"P/E ratio: {info['pe_ratio']}\n"
                 f"EPS: {info['eps']}\n"
-                #f"Target mean price: {info['target_mean_price']}$\n"
+                f"Target mean price: {info['target_mean_price']}$\n"
                 #f"Target high price: {info['target_high_price']}$\n"
                 #f"Target low price: {info['target_low_price']}$\n"
                 #f"────────────────────────────\n"
