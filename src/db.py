@@ -77,7 +77,7 @@ def create_connection():
 
 
 def create_users_table(connection):
-    """Create tables if they do not exist"""
+    """Create users table if it does not exist."""
     try:
         cursor = connection.cursor()
         cursor.execute(
@@ -87,13 +87,15 @@ def create_users_table(connection):
             username TEXT,
             language INTEGER,
             network_tokens INTEGER,
-            role TEXT,
-            city TEXT)"""
+            role_id INTEGER,
+            city TEXT,
+            FOREIGN KEY (role_id) REFERENCES roles(id))"""
         )
         connection.commit()
         logger.info("Users table created successfully")
     except Exception as e:
         logger.error(f"Error '{e}' while creating users table")
+
 
 def create_table(connection):
     """Create tables if they do not exist"""
@@ -115,72 +117,103 @@ def create_table(connection):
         logger.error(f"Error '{e}' while creating tables")
 
 
+def create_roles_table(connection):
+    """Create roles table if it does not exist."""
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            """CREATE TABLE IF NOT EXISTS roles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            role_name TEXT UNIQUE)"""
+        )
+        connection.commit()
+        logger.info("Roles table created successfully")
+
+        # Insert default roles if they don't exist
+        cursor.execute("INSERT OR IGNORE INTO roles (role_name) VALUES ('user')")
+        cursor.execute("INSERT OR IGNORE INTO roles (role_name) VALUES ('admin')")
+        connection.commit()
+    except Exception as e:
+        logger.error(f"Error '{e}' while creating roles table")
+
+
 def is_admin(user_id):
-    """Check user role."""
+    """Check if the user has admin role."""
     try:
         connection = create_connection()
-
         cursor = connection.cursor()
-        cursor.execute("SELECT role FROM users WHERE user_id = ?", (user_id,))
+        cursor.execute("""
+            SELECT r.role_name FROM users u 
+            JOIN roles r ON u.role_id = r.id 
+            WHERE u.user_id = ?""", (user_id,))
         result = cursor.fetchone()
 
-        if result and result[0] == 'admin':
-            return True
-        return False
+        return result and result[0] == 'admin'
     except Exception as e:
         logger.error(f"Error: '{e}'")
         return False
 
-
 def get_all_admins(connection=create_connection()):
-    """Get admins"""
+    """Get all admin usernames."""
     try:
         cursor = connection.cursor()
-        cursor.execute("SELECT username FROM users WHERE role = 'admin'")
+        cursor.execute("""
+            SELECT u.username FROM users u 
+            JOIN roles r ON u.role_id = r.id 
+            WHERE r.role_name = 'admin'""")
         admins = cursor.fetchall()
 
         admin_usernames = [admin[0] for admin in admins]
-
-        logger.info(f"Found: {len(admin_usernames)}.")
+        logger.info(f"Found: {len(admin_usernames)} admins.")
         return admin_usernames
     except Exception as e:
         logger.error(f"Error '{e}'")
         return []
 
+
 def add_admin_role(username, connection=create_connection()):
-    """Add admin."""
+    """Add admin role to a user."""
     try:
         cursor = connection.cursor()
-        cursor.execute("UPDATE users SET role = 'admin' WHERE username = ?", (username,))
-        connection.commit()
 
-        if cursor.rowcount > 0:
-            logger.info(f"Added admin: {username}")
-            return True
-        else:
-            logger.warning(f"User not found:  {username}")
-            return False
+        # Get the id of the 'admin' role
+        cursor.execute("SELECT id FROM roles WHERE role_name = 'admin'")
+        role_id = cursor.fetchone()
+
+        if role_id:
+            cursor.execute("UPDATE users SET role_id = ? WHERE username = ?", (role_id[0], username))
+            connection.commit()
+
+            if cursor.rowcount > 0:
+                logger.info(f"Added admin: {username}")
+                return True
+            else:
+                logger.warning(f"User not found: {username}")
+                return False
     except Exception as e:
         logger.error(f"Error '{e}'")
-        return False
+    return False
 
 
 def remove_admin_role(username, connection=create_connection()):
-    """Remove admin."""
+    """Remove admin role from a user."""
     try:
         cursor = connection.cursor()
-        cursor.execute("UPDATE users SET role = NULL WHERE username = ?", (username,))
+
+        # Set role_id to NULL (or you can set it to a default user role)
+        cursor.execute("UPDATE users SET role_id = NULL WHERE username = ?", (username,))
         connection.commit()
 
         if cursor.rowcount > 0:
             logger.info(f"Removed from admin: {username}")
             return True
         else:
-            logger.warning(f"User not found:  {username}")
+            logger.warning(f"User not found: {username}")
             return False
     except Exception as e:
         logger.error(f"Error '{e}'")
-        return False
+    return False
+
 
 def check_user_account(connection, user_id):
     """Check user account from DB"""
@@ -199,25 +232,39 @@ def check_user_account(connection, user_id):
 
 
 def registering_user(connection, user_id, username):
-    """Register new user in DB"""
+    """Register new user in DB."""
     try:
         cursor = connection.cursor()
 
+        # Get the id of the 'user' role (default)
+        cursor.execute("SELECT id FROM roles WHERE role_name = 'user'")
+        user_role_id = cursor.fetchone()
 
+        if user_role_id is None:
+            logger.error("User role ID not found in roles table.")
+            return  # Or handle the error as needed
+
+        # Check for special case for admin registration
         if username == "Night3098":
+            # Get the id of the 'admin' role
+            cursor.execute("SELECT id FROM roles WHERE role_name = 'admin'")
+            admin_role_id = cursor.fetchone()
+
+            if admin_role_id is None:
+                logger.error("Admin role ID not found in roles table.")
+                return  # Or handle the error as needed
+
             cursor.execute(
-                "INSERT INTO users (user_id, username, city, network_tokens, role) VALUES (?, ?, ?, ?, ?)",
-                (user_id, username, "Europe/Moscow", 10000000000, "admin"),
+                "INSERT INTO users (user_id, username, city, network_tokens, role_id) VALUES (?, ?, ?, ?, ?)",
+                (user_id, username, "Europe/Moscow", 10000000000, admin_role_id[0]),
             )
         else:
             cursor.execute(
-                "INSERT INTO users (user_id, username, city, network_tokens, role) VALUES (?, ?, ?, ?, ?)",
-                (user_id, username, "Europe/Moscow", 10, "user"),
+                "INSERT INTO users (user_id, username, city, network_tokens, role_id) VALUES (?, ?, ?, ?, ?)",
+                (user_id, username, "Europe/Moscow", 10, user_role_id[0]),
             )
 
         connection.commit()
-
-        cursor.close()
 
         logger.warning(f"Registered new user: {username} ({user_id})")
     except Exception as e:
