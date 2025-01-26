@@ -13,7 +13,7 @@ from config import (API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file,
 from db import (add_city_to_db, add_stock_to_db, check_user_account,
                 create_connection, create_table, create_users_table,
                 get_users_stocks, registering_user, remove_stock_from_db, get_id_by_username,
-                update_stock_quantity, remove_account, get_network_tokens, update_tokens, get_user_role)
+                update_stock_quantity, remove_account, get_network_tokens, update_tokens, get_user_role, is_admin, add_admin_role, remove_admin_role, get_all_admins)
 from func import (log_resource_usage, notify_user, process_adding_stocks,
                   process_removing_stocks, register_user, send_images,
                   start_monitoring_thread, start_parsing_thread,
@@ -28,6 +28,8 @@ from resources.messages import (ASSETS_MESSAGE, WELCOME_MESSAGE,
                                 get_news_period, get_users_city,
                                 not_register_message, register_message,
                                 remove_asset_request, confirm_delete_account_message, hvnt_network_tokens, select_lang_dialog)
+
+from kb_builder.admin_panel import admin_panel, admin_kb
 
 user_states = {}
 
@@ -45,16 +47,26 @@ async def start(client, message):
         if check_user_account(connection, user_id):
             photo_path = "resources/header.png"
             logger.info(f"New User: {user_id} - {username}")
-            await app.send_photo(
-                photo=photo_path,
-                chat_id=user_id,
-                caption=WELCOME_MESSAGE,
-                reply_markup=main_kb,
-                parse_mode=enums.ParseMode.MARKDOWN,
-            )
 
-            start_parsing_thread(user_id)
-            start_price_monitor_thread(user_id)
+            if is_admin(user_id):
+                await app.send_photo(
+                    photo=photo_path,
+                    chat_id=user_id,
+                    caption=WELCOME_MESSAGE,
+                    reply_markup=admin_kb,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                )
+            else:
+                await app.send_photo(
+                    photo=photo_path,
+                    chat_id=user_id,
+                    caption=WELCOME_MESSAGE,
+                    reply_markup=main_kb,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                )
+
+            # start_parsing_thread(user_id)
+            # start_price_monitor_thread(user_id)
 
         else:
             photo_path = "resources/header.png"
@@ -71,7 +83,7 @@ async def start(client, message):
 
 @app.on_message(filters.command("send_tokens"))
 async def send_tokens_command(client: Client, message: Message):
-    if(message.from_user.username == "Night3098"):
+    if is_admin(message.from_user.id):
         try:
             args = message.command[1:]
             if len(args) != 2:
@@ -87,7 +99,7 @@ async def send_tokens_command(client: Client, message: Message):
             await app.send_message(chat_id=id, text=f"You have received {tokens} tokens")
         except Exception as e:
             logger.error(f"Error: {e}")
-        
+
     else:
         await message.reply("You are not an admin")
 
@@ -95,6 +107,61 @@ async def send_tokens_command(client: Client, message: Message):
 async def answer(client, callback_query):
     try:
         data = callback_query.data
+
+        if data == "add_admin":
+            if is_admin(user_id):
+                admin_usernames = get_all_admins()
+                if admin_usernames:
+                    admins_list = '\n @'.join(admin_usernames)
+                    message = f"\nAdmins: {admins_list}\nEnter username to add:"
+                else:
+                    message = "\nNo admins found.\nEnter username to add:"
+
+                logger.info(f"add_admin: {user_id} - {username}")
+                user_states[user_id] = "add_admin"
+                await callback_query.message.edit_text(
+                    message,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                    reply_markup=admin_panel,
+                )
+            else:
+                pass
+
+        if data == "rm_admin":
+            if is_admin(user_id):
+                admin_usernames = get_all_admins()
+                if admin_usernames:
+                    admins_list = '\n @'.join(admin_usernames)
+                    message = f"\nAdmins: {admins_list}\nEnter username to remove:"
+                else:
+                    message = "\nNo admins found.\nEnter username to remove:"
+
+                logger.info(f"rm_admin: {user_id} - {username}")
+                user_states[user_id] = "rm_admin"
+                await callback_query.message.edit_text(
+                    message,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                    reply_markup=admin_panel,
+                )
+            else:
+                pass
+
+
+        if data == "admin_panel":
+            photo_path = "resources/header.png"
+
+            message = f"Welcome to admin panel\n"
+
+            if is_admin(user_id):
+                await app.send_photo(
+                    photo=photo_path,
+                    chat_id=user_id,
+                    caption=message,
+                    reply_markup=admin_panel,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                )
+            else:
+                pass
 
         if data == "get_price":
             global price_sent_message
@@ -130,13 +197,23 @@ async def answer(client, callback_query):
             sent_messages = callback_query.message
 
             await app.delete_messages(chat_id=user_id, message_ids=sent_messages.id)
-            await app.send_photo(
-                photo=photo_path,
-                chat_id=user_id,
-                caption=WELCOME_MESSAGE,
-                reply_markup=main_kb,
-                parse_mode=enums.ParseMode.MARKDOWN,
-            )
+
+            if is_admin(user_id):
+                await app.send_photo(
+                    photo=photo_path,
+                    chat_id=user_id,
+                    caption=WELCOME_MESSAGE,
+                    reply_markup=admin_kb,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                )
+            else:
+                await app.send_photo(
+                    photo=photo_path,
+                    chat_id=user_id,
+                    caption=WELCOME_MESSAGE,
+                    reply_markup=main_kb,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                )
 
         if data == "settings":
             logger.info(f"settings: {user_id} - {username}")
@@ -267,13 +344,54 @@ async def answer(client, callback_query):
 
 
 @app.on_message(filters.private & filters.text)
-async def handle_stock_input(client, message):
+async def handle_input(client, message):
 
     user_id = message.from_user.id
     username = message.from_user.username or "unknown"
 
     state = user_states.get(user_id)
     photo_path = "resources/header.png"
+
+    if state == "add_admin":
+        try:
+            data = message.text
+            add_admin_role(data)
+
+            admin_usernames = get_all_admins()
+            admins_list = '\n'.join(admin_usernames)
+            msg = f"\nAdmins: {admins_list}:"
+
+            await app.send_photo(
+                photo=photo_path,
+                chat_id=user_id,
+                caption=f"✅ Added successfully\n\n{msg}",
+                reply_markup=back_kb,
+                parse_mode=enums.ParseMode.MARKDOWN,
+            )
+
+        except Exception as err:
+            logger.error(err)
+
+    if state == "rm_admin":
+        try:
+            data = message.text
+            remove_admin_role(data)
+
+            admin_usernames = get_all_admins()
+            admins_list = '\n'.join(admin_usernames)
+            msg = f"\nAdmins: {admins_list}"
+
+            await app.send_photo(
+                photo=photo_path,
+                chat_id=user_id,
+                caption=f"✅ Removed successfully\n\n{msg}",
+                reply_markup=back_kb,
+                parse_mode=enums.ParseMode.MARKDOWN,
+            )
+
+
+        except Exception as err:
+            logger.error(err)
 
     if state == "adding":
         await process_adding_stocks(client, message, user_id, username)

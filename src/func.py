@@ -15,10 +15,11 @@ from pyrogram import enums
 from config import app, logger
 from db import (add_stock_to_db, check_user_account, create_connection,
                 get_city_from_db, get_users_stocks, registering_user,
-                remove_stock_from_db, update_stock_quantity)
+                remove_stock_from_db, update_stock_quantity, is_admin)
 from kb_builder.user_panel import main_kb
 from plt_gen import create_plt_price
 from resources.messages import WELCOME_MESSAGE, register_message
+from kb_builder.admin_panel import admin_kb
 
 user_price_thread = {}
 user_parse_thread = {}
@@ -302,11 +303,18 @@ async def register_user(user_id, username, callback_query):
         )
         time.sleep(2)
         if check_user_account(connection, user_id):
-            await callback_query.message.edit_text(
-                WELCOME_MESSAGE,
-                reply_markup=main_kb,
-                parse_mode=enums.ParseMode.MARKDOWN,
-            )
+            if is_admin(user_id):
+                await callback_query.message.edit_text(
+                    WELCOME_MESSAGE,
+                    reply_markup=admin_kb,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                )
+            else:
+                await callback_query.message.edit_text(
+                    WELCOME_MESSAGE,
+                    reply_markup=main_kb,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                )
             logger.info(f"User {user_id} - {username} registered")
 
             start_parsing_thread(user_id)

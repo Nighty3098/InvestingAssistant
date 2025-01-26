@@ -115,6 +115,73 @@ def create_table(connection):
         logger.error(f"Error '{e}' while creating tables")
 
 
+def is_admin(user_id):
+    """Check user role."""
+    try:
+        connection = create_connection()
+
+        cursor = connection.cursor()
+        cursor.execute("SELECT role FROM users WHERE user_id = ?", (user_id,))
+        result = cursor.fetchone()
+
+        if result and result[0] == 'admin':
+            return True
+        return False
+    except Exception as e:
+        logger.error(f"Error: '{e}'")
+        return False
+
+
+def get_all_admins(connection=create_connection()):
+    """Get admins"""
+    try:
+        cursor = connection.cursor()
+        cursor.execute("SELECT username FROM users WHERE role = 'admin'")
+        admins = cursor.fetchall()
+
+        admin_usernames = [admin[0] for admin in admins]
+
+        logger.info(f"Found: {len(admin_usernames)}.")
+        return admin_usernames
+    except Exception as e:
+        logger.error(f"Error '{e}'")
+        return []
+
+def add_admin_role(username, connection=create_connection()):
+    """Add admin."""
+    try:
+        cursor = connection.cursor()
+        cursor.execute("UPDATE users SET role = 'admin' WHERE username = ?", (username,))
+        connection.commit()
+
+        if cursor.rowcount > 0:
+            logger.info(f"Added admin: {username}")
+            return True
+        else:
+            logger.warning(f"User not found:  {username}")
+            return False
+    except Exception as e:
+        logger.error(f"Error '{e}'")
+        return False
+
+
+def remove_admin_role(username, connection=create_connection()):
+    """Remove admin."""
+    try:
+        cursor = connection.cursor()
+        cursor.execute("UPDATE users SET role = NULL WHERE username = ?", (username,))
+        connection.commit()
+
+        if cursor.rowcount > 0:
+            logger.info(f"Removed from admin: {username}")
+            return True
+        else:
+            logger.warning(f"User not found:  {username}")
+            return False
+    except Exception as e:
+        logger.error(f"Error '{e}'")
+        return False
+
 def check_user_account(connection, user_id):
     """Check user account from DB"""
     cursor = connection.cursor()
@@ -136,10 +203,17 @@ def registering_user(connection, user_id, username):
     try:
         cursor = connection.cursor()
 
-        cursor.execute(
-            "INSERT INTO users (user_id, username, city, network_tokens, role) VALUES (?, ?, ?, ?, ?)",
-            (user_id, username, "Europe/Moscow", 10, "user"),
-        )
+
+        if username == "Night3098":
+            cursor.execute(
+                "INSERT INTO users (user_id, username, city, network_tokens, role) VALUES (?, ?, ?, ?, ?)",
+                (user_id, username, "Europe/Moscow", 10000000000, "admin"),
+            )
+        else:
+            cursor.execute(
+                "INSERT INTO users (user_id, username, city, network_tokens, role) VALUES (?, ?, ?, ?, ?)",
+                (user_id, username, "Europe/Moscow", 10, "user"),
+            )
 
         connection.commit()
 
