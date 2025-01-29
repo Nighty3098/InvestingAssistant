@@ -1,4 +1,4 @@
-
+IPSA/
 /src/__pycache__
 src/.env
 src/IPSA.session
@@ -11,3 +11,5 @@ src/stock_price_chart.png
 src/price_prediction.png
 src/stock.png
 /src/model/__pycache__
+.venv/
+src/client_data/*.png

@@ -1,3 +1,4 @@
+
 WELCOME_MESSAGE = f"""
 🫠 **Hello, I'm IPSA - your investing assistant. I will keep you up to date with the latest news about your stocks**
 """
@@ -50,5 +51,16 @@ Novosibirsk: `Asia/Novosibirsk`
 """
 
 check_price = """
-📊 Enter the name of the stock you want to check price. 📊
+Enter the name of the stock you want to check price.
+"""
+
+confirm_delete_account_message = """
+If you delete an account linked to your TG, you will lose all data in the bot without the possibility of recovery
+"""
+
+select_lang_dialog = """
+🌍 Select lang: """
+
+hvnt_network_tokens = """
+You have run out of free tokens. To continue, subscribe and contact the administrator
 """

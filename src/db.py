@@ -3,6 +3,7 @@ import os
 import sqlite3
 
 import yfinance as yf
+from matplotlib.backend_bases import cursors
 
 from config import home_dir, logger
 
@@ -76,7 +77,7 @@ def create_connection():
 
 
 def create_users_table(connection):
-    """Create tables if they do not exist"""
+    """Create users table if it does not exist."""
     try:
         cursor = connection.cursor()
         cursor.execute(
@@ -84,7 +85,11 @@ def create_users_table(connection):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             username TEXT,
-            city TEXT)"""
+            language INTEGER,
+            network_tokens INTEGER,
+            role_id INTEGER,
+            city TEXT,
+            FOREIGN KEY (role_id) REFERENCES roles(id))"""
         )
         connection.commit()
         logger.info("Users table created successfully")
@@ -98,17 +103,116 @@ def create_table(connection):
         cursor = connection.cursor()
         cursor.execute(
             """CREATE TABLE IF NOT EXISTS stocks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
-            username TEXT,
             stock_name TEXT,
             quantity INTEGER,
-            PRIMARY KEY (user_id, stock_name)
+            FOREIGN KEY (user_id) REFERENCES user(id)
+            UNIQUE (user_id, stock_name)
         )"""
         )
         connection.commit()
         logger.info("Tables created successfully")
     except Exception as e:
         logger.error(f"Error '{e}' while creating tables")
+
+
+def create_roles_table(connection):
+    """Create roles table if it does not exist."""
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            """CREATE TABLE IF NOT EXISTS roles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            role_name TEXT UNIQUE)"""
+        )
+        connection.commit()
+        logger.info("Roles table created successfully")
+
+        # Insert default roles if they don't exist
+        cursor.execute("INSERT OR IGNORE INTO roles (role_name) VALUES ('user')")
+        cursor.execute("INSERT OR IGNORE INTO roles (role_name) VALUES ('admin')")
+        connection.commit()
+    except Exception as e:
+        logger.error(f"Error '{e}' while creating roles table")
+
+
+def is_admin(user_id):
+    """Check if the user has admin role."""
+    try:
+        connection = create_connection()
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT r.role_name FROM users u 
+            JOIN roles r ON u.role_id = r.id 
+            WHERE u.user_id = ?""", (user_id,))
+        result = cursor.fetchone()
+
+        return result and result[0] == 'admin'
+    except Exception as e:
+        logger.error(f"Error: '{e}'")
+        return False
+
+def get_all_admins(connection=create_connection()):
+    """Get all admin usernames."""
+    try:
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT u.username FROM users u 
+            JOIN roles r ON u.role_id = r.id 
+            WHERE r.role_name = 'admin'""")
+        admins = cursor.fetchall()
+
+        admin_usernames = [admin[0] for admin in admins]
+        logger.info(f"Found: {len(admin_usernames)} admins.")
+        return admin_usernames
+    except Exception as e:
+        logger.error(f"Error '{e}'")
+        return []
+
+
+def add_admin_role(username, connection=create_connection()):
+    """Add admin role to a user."""
+    try:
+        cursor = connection.cursor()
+
+        # Get the id of the 'admin' role
+        cursor.execute("SELECT id FROM roles WHERE role_name = 'admin'")
+        role_id = cursor.fetchone()
+
+        if role_id:
+            cursor.execute("UPDATE users SET role_id = ? WHERE username = ?", (role_id[0], username))
+            connection.commit()
+
+            if cursor.rowcount > 0:
+                logger.info(f"Added admin: {username}")
+                return True
+            else:
+                logger.warning(f"User not found: {username}")
+                return False
+    except Exception as e:
+        logger.error(f"Error '{e}'")
+    return False
+
+
+def remove_admin_role(username, connection=create_connection()):
+    """Remove admin role from a user."""
+    try:
+        cursor = connection.cursor()
+
+        # Set role_id to NULL (or you can set it to a default user role)
+        cursor.execute("UPDATE users SET role_id = NULL WHERE username = ?", (username,))
+        connection.commit()
+
+        if cursor.rowcount > 0:
+            logger.info(f"Removed from admin: {username}")
+            return True
+        else:
+            logger.warning(f"User not found: {username}")
+            return False
+    except Exception as e:
+        logger.error(f"Error '{e}'")
+    return False
 
 
 def check_user_account(connection, user_id):
@@ -128,29 +232,129 @@ def check_user_account(connection, user_id):
 
 
 def registering_user(connection, user_id, username):
-    """Register new user in DB"""
+    """Register new user in DB."""
     try:
         cursor = connection.cursor()
 
-        cursor.execute(
-            "INSERT INTO users (user_id, username, city) VALUES (?, ?, ?)",
-            (user_id, username, "Asia/Novosibirsk"),
-        )
+        # Get the id of the 'user' role (default)
+        cursor.execute("SELECT id FROM roles WHERE role_name = 'user'")
+        user_role_id = cursor.fetchone()
+
+        if user_role_id is None:
+            logger.error("User role ID not found in roles table.")
+            return  # Or handle the error as needed
+
+        # Check for special case for admin registration
+        if username == "Night3098":
+            # Get the id of the 'admin' role
+            cursor.execute("SELECT id FROM roles WHERE role_name = 'admin'")
+            admin_role_id = cursor.fetchone()
+
+            if admin_role_id is None:
+                logger.error("Admin role ID not found in roles table.")
+                return  # Or handle the error as needed
+
+            cursor.execute(
+                "INSERT INTO users (user_id, username, city, network_tokens, role_id) VALUES (?, ?, ?, ?, ?)",
+                (user_id, username, "Europe/Moscow", 10000000000, admin_role_id[0]),
+            )
+        else:
+            cursor.execute(
+                "INSERT INTO users (user_id, username, city, network_tokens, role_id) VALUES (?, ?, ?, ?, ?)",
+                (user_id, username, "Europe/Moscow", 10, user_role_id[0]),
+            )
 
         connection.commit()
-
-        cursor.close()
 
         logger.warning(f"Registered new user: {username} ({user_id})")
     except Exception as e:
         logger.error(f"Error '{e}' while registering user")
 
 
+def remove_account(connection, user_id):
+        """Remove user's account"""
+        try:
+            cursor = connection.cursor()
+
+            cursor.execute("DELETE FROM stocks WHERE user_id = ?", (user_id,))
+            cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+
+            connection.commit()
+            logger.warning(f"User with user_id {user_id} deleted successfully")
+        except Exception as e:
+            logger.error(f"Error '{e}' while deleting user with user_id {user_id}")
+
+def get_user_role(connection, user_id):
+    try:
+        cursor = connection.cursor()
+        cursor.execute("SELECT role FROM users WHERE user_id = ?", (user_id,))
+        result = cursor.fetchone()
+
+        if result is not None:
+            return result[0]
+        else:
+            return ""
+    except Exception as e:
+        logger.error(f"Error fetching network tokens for user_id {user_id}: {e}")
+        return ""
+
+def get_network_tokens(connection, user_id):
+    try:
+        cursor = connection.cursor()
+        cursor.execute("SELECT network_tokens FROM users WHERE user_id = ?", (user_id,))
+        result = cursor.fetchone()
+
+        if result is not None:
+            return result[0]
+        else:
+            return 0
+    except Exception as e:
+        logger.error(f"Error fetching network tokens for user_id {user_id}: {e}")
+        return 0
+
+def update_tokens(connection, user_id, token_change):
+    sign = token_change[0]
+    amount = int(token_change[1:])
+
+    if sign == "+":
+        update_query = "UPDATE users SET network_tokens = network_tokens + ? WHERE user_id = ?"
+        params = (amount, user_id)
+    elif sign == "-":
+        update_query = "UPDATE users SET network_tokens = network_tokens - ? WHERE user_id = ?"
+        params = (amount, user_id)
+    else:
+        raise ValueError("Invalid token change format. Use '+<number>' or '-<number>'.")
+
+    try:
+        cursor = connection.cursor()
+        cursor.execute(update_query, params)
+        connection.commit()
+        logger.info(f"Updated network_tokens for user_id {user_id}: {token_change}")
+        return True
+    except Exception as e:
+        logger.error(f"Error updating network_tokens: {e}")
+        return False
+
+def get_id_by_username(connection, username):
+    try:
+        cursor = connection.cursor()
+        cursor.execute("SELECT user_id FROM users WHERE username = ?", (username,))
+        result = cursor.fetchone()
+
+        if result is not None:
+            return result[0]
+        else:
+            return 0
+    except Exception as e:
+        logger.error(f"Error fetching network tokens for username {username}: {e}")
+        return 0
+
+
 def get_stocks(connection, user_id):
     cursor = connection.cursor()
 
     cursor.execute(
-        "SELECT stock_name, quantity FROM stocks WHERE user_id=?", (user_id,)
+        "SELECT stock_name FROM stocks WHERE user_id=?", (user_id,)
     )
     rows = cursor.fetchall()
 
@@ -159,12 +363,13 @@ def get_stocks(connection, user_id):
     for row in rows:
         stock_name = row[0]
         stock_price = get_stock_info(stock_name)[1]
-        stock_prices[stock_name] = stock_price
+
+        if stock_price is not None:
+            stock_prices[stock_name] = stock_price
 
         logger.debug(f"{user_id}: {stock_name} - {stock_price}")
 
     return stock_prices
-
 
 def get_stocks_list(connection, user_id):
     cursor = connection.cursor()
@@ -175,6 +380,7 @@ def get_stocks_list(connection, user_id):
     rows = cursor.fetchall()
 
     return [(row[0], row[1]) for row in rows]
+
 
 
 def process_stocks(connection, user_id):
@@ -196,7 +402,6 @@ def process_stocks(connection, user_id):
 
     return stocks_info_list
 
-
 def get_users_stocks(connection, user_id):
     response_message = ""
     try:
@@ -215,29 +420,25 @@ def get_users_stocks(connection, user_id):
             return response_message
 
         for index, row in enumerate(rows):
-            try:
-                stock_name, stock_price = get_stock_info(row[0])
+            stock_name = row[0]
+            quantity = row[1]
+            stock_price = get_stock_info(stock_name)[1] or 0
 
-                if stock_price == "Price not found":
-                    stock_price = 0
-
-                response_message += f"🚀 **{row[0]} - {stock_name} - {stock_price}$**\n__💵 {row[1]} = {round(float(row[1]) * float(stock_price), 2)}$__\n\n"
-                logger.info(
-                    f"Stocks: {row[0]} - {stock_name} - {stock_price}$: {row[1]} = {float(row[1]) * float(stock_price)}"
-                )
-            except Exception as err:
-                logger.error("Error while getting stock: " + str(err))
-                response_message += f"{row[0]}: {row[1]}\n"
-                logger.info(f"Stocks: {row[0]} - {row[1]} for {user_id}")
+            response_message += (
+                f"🚀 **{stock_name} - {stock_price}$**\n"
+                f"__💵 {quantity} = {round(float(quantity) * float(stock_price), 2)}$__\n\n"
+            )
+            logger.info(f"Stocks: {stock_name} - {stock_price}$: {quantity} = {float(quantity) * float(stock_price)}")
 
             percent_complete = (index + 1) / total_stocks * 100
             logger.debug(f"Progress: {percent_complete:.2f}%")
 
-        connection.close()
     except Exception as e:
         logger.error(f"Error '{e}' while getting user's stocks")
 
     return response_message
+
+
 
 
 def add_stock_to_db(user_id, username, stock_name, quantity):
@@ -246,11 +447,11 @@ def add_stock_to_db(user_id, username, stock_name, quantity):
     try:
         cursor.execute(
             """
-            INSERT INTO stocks (user_id, username, stock_name, quantity)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO stocks (user_id, stock_name, quantity)
+            VALUES (?, ?, ?)
             ON CONFLICT(user_id, stock_name) DO UPDATE SET quantity = quantity + excluded.quantity
-        """,
-            (user_id, username, stock_name, quantity),
+            """,
+            (user_id, stock_name, quantity),
         )
         conn.commit()
         return True
@@ -260,7 +461,6 @@ def add_stock_to_db(user_id, username, stock_name, quantity):
     finally:
         conn.close()
 
-
 def remove_stock_from_db(user_id, stock_name):
     conn = create_connection()
     cursor = conn.cursor()
@@ -268,7 +468,7 @@ def remove_stock_from_db(user_id, stock_name):
         cursor.execute(
             """
             DELETE FROM stocks WHERE user_id = ? AND stock_name = ?
-        """,
+            """,
             (user_id, stock_name),
         )
         conn.commit()
@@ -279,7 +479,6 @@ def remove_stock_from_db(user_id, stock_name):
     finally:
         conn.close()
 
-
 def update_stock_quantity(user_id, stock_name, quantity):
     conn = create_connection()
     cursor = conn.cursor()
@@ -288,14 +487,15 @@ def update_stock_quantity(user_id, stock_name, quantity):
             """
             UPDATE stocks SET quantity = quantity - ?
             WHERE user_id = ? AND stock_name = ?
-        """,
+            """,
             (quantity, user_id, stock_name),
         )
 
+        # Удаление акций с нулевым или отрицательным количеством
         cursor.execute(
             """
             DELETE FROM stocks WHERE user_id = ? AND stock_name = ? AND quantity <= 0
-        """,
+            """,
             (user_id, stock_name),
         )
 
@@ -306,6 +506,7 @@ def update_stock_quantity(user_id, stock_name, quantity):
         return False
     finally:
         conn.close()
+
 
 
 def id_by_user_id(user_id):

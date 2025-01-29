@@ -1,31 +1,28 @@
 import os
 from datetime import datetime, timedelta
+import logging
 
 import joblib
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import tensorflow as tf  # Импортируем TensorFlow для управления сессиями
+import tensorflow as tf
 import yfinance as yf
 from keras.models import load_model
 
+logging.basicConfig(level=logging.INFO)
 
 class StockPredictor:
-    def __init__(self):
-        self.model_path = os.path.join(
-            os.getcwd(), "IPSA_MODEL", "price", "stock_model.keras"
-        )
-        self.scaler_path = os.path.join(
-            os.getcwd(), "IPSA_MODEL", "price", "scaler.save"
-        )
+    def __init__(self, model_path=None, scaler_path=None):
+        self.model_path = model_path or os.path.join(os.getcwd(), "IPSA_MODEL", "price", "stock_model.keras")
+        self.scaler_path = scaler_path or os.path.join(os.getcwd(), "IPSA_MODEL", "price", "scaler.save")
 
         self.model = load_model(self.model_path)
         self.scaler = joblib.load(self.scaler_path)
 
-    def predict_price(self, ticker):
+    def predict_price(self, ticker, window_size=365):
         end_date = datetime.now()
-        start_date = end_date - timedelta(days=365)
+        start_date = end_date - timedelta(days=window_size)
 
         data = yf.download(
             ticker,
@@ -33,45 +30,33 @@ class StockPredictor:
             end=end_date.strftime("%Y-%m-%d"),
         )
 
-        last_365_days = data[
-            ["Open", "Close", "High", "Low", "Adj Close", "Volume"]
-        ].values[-365:]
+        last_data = data[["Open", "Close", "High", "Low", "Adj Close", "Volume"]].values[-window_size:]
 
         # Масштабируем данные
-        last_365_days_scaled = self.scaler.transform(last_365_days)
+        last_data_scaled = self.scaler.transform(last_data)
 
         # Подготовка данных для модели
-        X_test = []
-        X_test.append(last_365_days_scaled)
-        X_test = np.array(X_test)
+        X_test = np.array([last_data_scaled])
         X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], X_test.shape[2]))
 
-        # Предсказание цены
-        predicted_price = self.model.predict(X_test)
+        # Предсказание вероятности
+        predicted_probabilities = self.model.predict(X_test)
 
         # Освобождаем память после предсказания
         tf.keras.backend.clear_session()
 
-        # Создаем массив для обратного преобразования с правильной формой
-        last_day_features = last_365_days_scaled[-1].copy()  # Копируем последний день
-        last_day_features[1] = predicted_price[0][
-            0
-        ]  # Заменяем цену закрытия на предсказанную
+        # Определяем предсказанную цену на основе вероятности
+        predicted_price = last_data[-1, 1] * (1 + (predicted_probabilities[0][0] - 0.5) * 0.1)  # Примерный расчет
 
-        # Выполняем обратное преобразование
-        predicted_price_unscaled = self.scaler.inverse_transform(
-            np.array([last_day_features])
-        )
-
-        return predicted_price_unscaled[0][1]  # Вернем предсказанную цену закрытия
+        return predicted_price, predicted_probabilities[0][0]  # Вернем предсказанную цену и вероятность
 
     def analyze(self, ticker, threshold=0.05):
-        predicted_price = self.predict_price(ticker)
+        predicted_price, predicted_probability = self.predict_price(ticker)
 
         current_price_data = yf.download(ticker, period="1d")["Close"]
 
         if current_price_data.empty:
-            print(f"No current price data found for ticker: {ticker}")
+            logging.error(f"No current price data found for ticker: {ticker}")
             return None
 
         current_price = current_price_data.iloc[-1]
@@ -79,17 +64,14 @@ class StockPredictor:
         if isinstance(current_price, pd.Series):
             current_price = current_price.iloc[0]
 
-        if isinstance(predicted_price, np.ndarray):
-            predicted_price = predicted_price[0]
-        elif isinstance(predicted_price, pd.Series):
-            predicted_price = predicted_price.iloc[0]
-
         # Ensure both prices are floats
         current_price = float(current_price)
         predicted_price = float(predicted_price)
 
         # Form the message
         message = f"Predicted price for {ticker} next month: {predicted_price:.2f}$\nCurrent price: {current_price:.2f}$\n"
+
+        logging.info(f"Probability of price increase: {predicted_probability:.2f}")
 
         price_change_percentage = (predicted_price - current_price) / current_price
 
@@ -101,16 +83,15 @@ class StockPredictor:
             message += "Advice: Sell"
         else:
             message += "Advice: Wait"
-
         return message
 
-    def predict_plt(self, ticker, user_id):
-        predicted_price = self.predict_price(ticker)
+    def predict_plt(self, ticker, user_id, period="6mo"):
+        predicted_price, predicted_probability = self.predict_price(ticker)
 
-        historical_data = yf.download(ticker, period="6mo")
+        historical_data = yf.download(ticker, period=period)
 
         if historical_data.empty:
-            print(f"No historical data found for ticker: {ticker}")
+            logging.error(f"No historical data found for ticker: {ticker}")
             return None
 
         # Определяем границы прогноза (например, ±5% от предсказанной цены)
@@ -124,7 +105,6 @@ class StockPredictor:
             historical_data["Open"],
             label="Historical Open Price",
             color="blue",
-            alpha=0.6,  # Уменьшаем непрозрачность для экономии памяти
         )
 
         plt.plot(
@@ -132,7 +112,6 @@ class StockPredictor:
             historical_data["Close"],
             label="Historical Close Price",
             color="red",
-            alpha=0.6,  # Уменьшаем непрозрачность для экономии памяти
         )
 
         future_dates = [
@@ -147,7 +126,6 @@ class StockPredictor:
             color="orange",
             label="Predicted Price",
             linestyle="--",
-            alpha=0.8,  # Уменьшаем непрозрачность для экономии памяти
         )
 
         plt.scatter(
@@ -156,7 +134,7 @@ class StockPredictor:
             color="purple",
             label="Min Forecast",
             zorder=5,
-            s=50,  # Увеличиваем размер точки для лучшей видимости
+            s=50,
         )
 
         plt.scatter(
@@ -165,7 +143,7 @@ class StockPredictor:
             color="gold",
             label="Max Forecast",
             zorder=5,
-            s=50,  # Увеличиваем размер точки для лучшей видимости
+            s=50,
         )
 
         plt.axhline(
@@ -233,7 +211,6 @@ class StockPredictor:
         plt.close()
 
         return filename
-
 
 if __name__ == "__main__":
     stock_predictor = StockPredictor()
