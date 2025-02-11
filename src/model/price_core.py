@@ -20,35 +20,40 @@ class StockPredictor:
         self.model = load_model(self.model_path)
         self.scaler = joblib.load(self.scaler_path)
 
-    def predict_price(self, ticker, window_size=365):
+
+    def predict_price(self, ticker, window_size=249):  # Set window_size to match the model's expected time steps
         end_date = datetime.now()
         start_date = end_date - timedelta(days=window_size)
 
+        # Download data
         data = yf.download(
             ticker,
             start=start_date.strftime("%Y-%m-%d"),
             end=end_date.strftime("%Y-%m-%d"),
         )
 
-        last_data = data[["Open", "Close", "High", "Low", "Adj Close", "Volume"]].values[-window_size:]
+        # Select multiple features for scaling
+        last_data = data[["Open", "High", "Low", "Close", "Volume", "Adj Close"]].values[-window_size:]
 
-        # Масштабируем данные
+        # Scale the data
         last_data_scaled = self.scaler.transform(last_data)
 
-        # Подготовка данных для модели
-        X_test = np.array([last_data_scaled])
-        X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], X_test.shape[2]))
+        # Prepare data for the model
+        X_test = np.array([last_data_scaled])  # Shape: (1, 249, 6)
 
-        # Предсказание вероятности
+        # Reshape to match the model's input shape
+        X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], X_test.shape[2]))  # Shape: (1, 249, 6)
+
+        # Predict the price
         predicted_probabilities = self.model.predict(X_test)
 
-        # Освобождаем память после предсказания
+        # Clear session to free memory
         tf.keras.backend.clear_session()
 
-        # Определяем предсказанную цену на основе вероятности
-        predicted_price = last_data[-1, 1] * (1 + (predicted_probabilities[0][0] - 0.5) * 0.1)  # Примерный расчет
+        # Calculate the predicted price
+        predicted_price = last_data[-1, 3] * (1 + (predicted_probabilities[0][0] - 0.5) * 0.1)  # Example calculation
 
-        return predicted_price, predicted_probabilities[0][0]  # Вернем предсказанную цену и вероятность
+        return float(predicted_price), float(predicted_probabilities[0][0])  # Return predicted price and probability as floats
 
     def analyze(self, ticker, threshold=0.05):
         predicted_price, predicted_probability = self.predict_price(ticker)
@@ -71,7 +76,10 @@ class StockPredictor:
         # Form the message
         message = f"Predicted price for {ticker} next month: {predicted_price:.2f}$\nCurrent price: {current_price:.2f}$\n"
 
-        logging.info(f"Probability of price increase: {predicted_probability:.2f}")
+        # Use predicted_probability directly since it's already a float
+        predicted_probability_value = predicted_probability  # No need for .item()
+
+        logging.info(f"Probability of price increase: {predicted_probability_value:.2f}")
 
         price_change_percentage = (predicted_price - current_price) / current_price
 
@@ -94,9 +102,9 @@ class StockPredictor:
             logging.error(f"No historical data found for ticker: {ticker}")
             return None
 
-        # Определяем границы прогноза (например, ±5% от предсказанной цены)
-        min_forecast = predicted_price * 0.95  # Минимум на 5% ниже
-        max_forecast = predicted_price * 1.05  # Максимум на 5% выше
+        # Define forecast boundaries
+        min_forecast = float(predicted_price * 0.95)  # Convert to float
+        max_forecast = float(predicted_price * 1.05)  # Convert to float
 
         plt.figure(figsize=(14, 7))
 
@@ -159,19 +167,19 @@ class StockPredictor:
         plt.text(
             future_dates[0],
             min_forecast + 2,
-            f"{min_forecast:.2f}",
+            f"{min_forecast:.2f}",  # This will now work
             fontsize=10,
             color="purple",
         )
         plt.text(
             future_dates[0],
             max_forecast + 2,
-            f"{max_forecast:.2f}",
+            f"{max_forecast:.2f}",  # This will now work
             fontsize=10,
             color="gold",
         )
 
-        plt.scatter(
+        plt.scatter (
             future_dates[0],
             predicted_price,
             color="red",
@@ -181,7 +189,7 @@ class StockPredictor:
         plt.text(
             future_dates[0],
             predicted_price + 2,
-            f"{predicted_price:.2f}",
+            f"{predicted_price:.2f}",  # This will now work
             fontsize=10,
             color="red",
         )
