@@ -8,28 +8,71 @@ from threading import Thread
 from pyrogram import Client, enums, filters
 from pyrogram.types import InputMediaPhoto, Message
 
-from config import (API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file,
-                    logger)
-from db import (add_city_to_db, add_stock_to_db, check_user_account,
-                create_connection, create_table, create_users_table,
-                get_users_stocks, registering_user, remove_stock_from_db, get_id_by_username,
-                update_stock_quantity, remove_account, get_network_tokens, update_tokens, get_user_role, is_admin, add_admin_role, remove_admin_role, get_all_admins)
-from func import (log_resource_usage, notify_user, process_adding_stocks,
-                  process_removing_stocks, register_user, send_images,
-                  start_monitoring_thread, start_parsing_thread,
-                  start_price_monitor_thread)
-from kb_builder.user_panel import (back_kb, back_stocks_kb, main_kb,
-                                   register_user_kb, stocks_management_kb, settings_kb, confirm_delete_account)
+from config import API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file, logger
+from db import (
+    add_admin_role,
+    add_city_to_db,
+    add_stock_to_db,
+    check_user_account,
+    create_connection,
+    create_table,
+    create_users_table,
+    get_all_admins,
+    get_id_by_username,
+    get_network_tokens,
+    get_user_role,
+    get_users_stocks,
+    is_admin,
+    registering_user,
+    remove_account,
+    remove_admin_role,
+    remove_stock_from_db,
+    update_stock_quantity,
+    update_tokens,
+)
+from func import (
+    log_resource_usage,
+    notify_user,
+    process_adding_stocks,
+    process_removing_stocks,
+    register_user,
+    send_images,
+    start_monitoring_thread,
+    start_parsing_thread,
+    start_price_monitor_thread,
+)
+from kb_builder.admin_panel import admin_kb, admin_panel
+from kb_builder.user_panel import (
+    back_kb,
+    back_stocks_kb,
+    confirm_delete_account,
+    main_kb,
+    register_user_kb,
+    settings_kb,
+    stocks_management_kb,
+)
 from model.price_core import StockPredictor
-from parsing import (check_new_articles, parse_investing_news,
-                     run_check_new_articles, start_parsing)
-from resources.messages import (ASSETS_MESSAGE, WELCOME_MESSAGE,
-                                add_asset_request, check_price, collect_data,
-                                get_news_period, get_users_city,
-                                not_register_message, register_message,
-                                remove_asset_request, confirm_delete_account_message, hvnt_network_tokens, select_lang_dialog)
-
-from kb_builder.admin_panel import admin_panel, admin_kb
+from parsing import (
+    check_new_articles,
+    parse_investing_news,
+    run_check_new_articles,
+    start_parsing,
+)
+from resources.messages import (
+    ASSETS_MESSAGE,
+    WELCOME_MESSAGE,
+    add_asset_request,
+    check_price,
+    collect_data,
+    confirm_delete_account_message,
+    get_news_period,
+    get_users_city,
+    hvnt_network_tokens,
+    not_register_message,
+    register_message,
+    remove_asset_request,
+    select_lang_dialog,
+)
 
 user_states = {}
 
@@ -65,8 +108,8 @@ async def start(client, message):
                     parse_mode=enums.ParseMode.MARKDOWN,
                 )
 
-            # start_parsing_thread(user_id)
-            # start_price_monitor_thread(user_id)
+            start_parsing_thread(user_id)
+            start_price_monitor_thread(user_id)
 
         else:
             photo_path = "resources/header.png"
@@ -80,6 +123,7 @@ async def start(client, message):
             )
     except Exception as e:
         logger.error(f"Error: {e}")
+
 
 @app.on_message(filters.command("send_tokens"))
 async def send_tokens_command(client: Client, message: Message):
@@ -96,12 +140,15 @@ async def send_tokens_command(client: Client, message: Message):
             id = get_id_by_username(create_connection(), username)
             update_tokens(create_connection(), id, tokens)
 
-            await app.send_message(chat_id=id, text=f"You have received {tokens} tokens")
+            await app.send_message(
+                chat_id=id, text=f"You have received {tokens} tokens"
+            )
         except Exception as e:
             logger.error(f"Error: {e}")
 
     else:
         await message.reply("You are not an admin")
+
 
 @app.on_callback_query()
 async def answer(client, callback_query):
@@ -112,7 +159,7 @@ async def answer(client, callback_query):
             if is_admin(user_id):
                 admin_usernames = get_all_admins()
                 if admin_usernames:
-                    admins_list = '\n @'.join(admin_usernames)
+                    admins_list = "\n @".join(admin_usernames)
                     message = f"\nAdmins: {admins_list}\nEnter username to add:"
                 else:
                     message = "\nNo admins found.\nEnter username to add:"
@@ -131,7 +178,7 @@ async def answer(client, callback_query):
             if is_admin(user_id):
                 admin_usernames = get_all_admins()
                 if admin_usernames:
-                    admins_list = '\n @'.join(admin_usernames)
+                    admins_list = "\n @".join(admin_usernames)
                     message = f"\nAdmins: {admins_list}\nEnter username to remove:"
                 else:
                     message = "\nNo admins found.\nEnter username to remove:"
@@ -145,7 +192,6 @@ async def answer(client, callback_query):
                 )
             else:
                 pass
-
 
         if data == "admin_panel":
             photo_path = "resources/header.png"
@@ -178,7 +224,7 @@ async def answer(client, callback_query):
                     parse_mode=enums.ParseMode.MARKDOWN,
                     reply_markup=back_kb,
                 )
-            else :
+            else:
                 user_states[user_id] = "price"
 
                 message = f"You have {tokens} free tokens\n\n{check_price}"
@@ -358,7 +404,7 @@ async def handle_input(client, message):
             add_admin_role(data)
 
             admin_usernames = get_all_admins()
-            admins_list = '\n'.join(admin_usernames)
+            admins_list = "\n".join(admin_usernames)
             msg = f"\nAdmins: {admins_list}:"
 
             await app.send_photo(
@@ -378,7 +424,7 @@ async def handle_input(client, message):
             remove_admin_role(data)
 
             admin_usernames = get_all_admins()
-            admins_list = '\n'.join(admin_usernames)
+            admins_list = "\n".join(admin_usernames)
             msg = f"\nAdmins: {admins_list}"
 
             await app.send_photo(
@@ -388,7 +434,6 @@ async def handle_input(client, message):
                 reply_markup=back_kb,
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
-
 
         except Exception as err:
             logger.error(err)
@@ -480,9 +525,9 @@ async def handle_input(client, message):
                 f"P/E ratio: {info['pe_ratio']}\n"
                 f"EPS: {info['eps']}\n"
                 f"Target mean price: {info['target_mean_price']}$\n"
-                #f"Target high price: {info['target_high_price']}$\n"
-                #f"Target low price: {info['target_low_price']}$\n"
-                #f"────────────────────────────\n"
+                # f"Target high price: {info['target_high_price']}$\n"
+                # f"Target low price: {info['target_low_price']}$\n"
+                # f"────────────────────────────\n"
                 f"{advice_message}\n"
                 f"────────────────────────────\n"
                 f"You have {updated_tokens} tokens left"

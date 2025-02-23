@@ -60,7 +60,7 @@ class StockPredictor:
 
         # Подготовка данных
         scaled_data = self.scaler.transform(
-            data[["Open", "High", "Low", "Close", "Volume", "Adj Close"]]
+            data[["Close", "High", "Low", "Open", "Volume"]]
         )
 
         # Итеративное прогнозирование
