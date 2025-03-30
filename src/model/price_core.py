@@ -1,6 +1,8 @@
-import os
-from datetime import datetime, timedelta
 import logging
+import os
+import time
+from datetime import datetime, timedelta
+from pathlib import Path
 
 import joblib
 import matplotlib.pyplot as plt
@@ -14,205 +16,183 @@ logging.basicConfig(level=logging.INFO)
 
 class StockPredictor:
     def __init__(self, model_path=None, scaler_path=None):
-        self.model_path = model_path or os.path.join(os.getcwd(), "IPSA_MODEL", "price", "stock_model.keras")
-        self.scaler_path = scaler_path or os.path.join(os.getcwd(), "IPSA_MODEL", "price", "scaler.save")
+        self.base_dir = Path(__file__).parent.parent / "IPSA_MODEL" / "price"
 
-        self.model = load_model(self.model_path)
-        self.scaler = joblib.load(self.scaler_path)
+        self.model_path = model_path or self.base_dir / "best_model.keras"
+        self.scaler_path = scaler_path or self.base_dir / "stock_scaler.save"
+        self._check_files_exist()
 
-    def predict_price(self, ticker, window_size=365):
+        self.model = load_model(str(self.model_path))
+        self.scaler = joblib.load(str(self.scaler_path))
+
+        self.window_size = 365
+        self.forecast_days = 60
+
+    def _check_files_exist(self):
+        missing_files = []
+
+        if not self.model_path.exists():
+            missing_files.append(str(self.model_path))
+
+        if not self.scaler_path.exists():
+            missing_files.append(str(self.scaler_path))
+
+        if missing_files:
+            raise FileNotFoundError(
+                f"Missing required files: {', '.join(missing_files)}\n"
+                "Please train the model first or provide correct paths."
+            )
+
+    def predict_future(self, ticker):
         end_date = datetime.now()
-        start_date = end_date - timedelta(days=window_size)
+        start_date = end_date - timedelta(days=self.window_size + self.forecast_days)
 
-        data = yf.download(
-            ticker,
-            start=start_date.strftime("%Y-%m-%d"),
-            end=end_date.strftime("%Y-%m-%d"),
-        )
+        max_retries = 3
+        retry_delay = 5
 
-        last_data = data[["Open", "Close", "High", "Low", "Adj Close", "Volume"]].values[-window_size:]
+        for attempt in range(max_retries):
+            try:
+                data = yf.download(ticker, start=start_date, end=end_date)
 
-        # Масштабируем данные
-        last_data_scaled = self.scaler.transform(last_data)
+                if data.empty:
+                    raise ValueError(f"No historical data for {ticker}")
 
-        # Подготовка данных для модели
-        X_test = np.array([last_data_scaled])
-        X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], X_test.shape[2]))
+                scaled_data = self.scaler.transform(
+                    data[["Open", "High", "Low", "Close", "Volume"]]
+                )
 
-        # Предсказание вероятности
-        predicted_probabilities = self.model.predict(X_test)
+                predictions = []
+                current_window = scaled_data[-self.window_size :]
 
-        # Освобождаем память после предсказания
-        tf.keras.backend.clear_session()
+                for _ in range(self.forecast_days):
+                    next_pred = self.model.predict(current_window[np.newaxis, ...])[0][
+                        0
+                    ]
 
-        # Определяем предсказанную цену на основе вероятности
-        predicted_price = last_data[-1, 1] * (1 + (predicted_probabilities[0][0] - 0.5) * 0.1)  # Примерный расчет
+                    new_row = np.array(
+                        [
+                            [
+                                next_pred,  # Open
+                                next_pred,  # High
+                                next_pred,  # Low
+                                next_pred,  # Close
+                                current_window[-1, 4],  # Volume
+                            ]
+                        ]
+                    )
 
-        return predicted_price, predicted_probabilities[0][0]  # Вернем предсказанную цену и вероятность
+                    current_window = np.concatenate(
+                        [current_window[1:], new_row], axis=0
+                    )
+                    predictions.append(next_pred)
+
+                dummy_data = np.zeros((len(predictions), 5))
+                dummy_data[:, 0] = predictions
+                predictions = self.scaler.inverse_transform(dummy_data)[:, 0]
+
+                return predictions
+
+            except Exception as e:
+                logging.warning(
+                    f"Attempt {attempt+1}/{max_retries} failed for {ticker}: {str(e)}"
+                )
+                if attempt < max_retries - 1:
+                    logging.info(f"Waiting {retry_delay} seconds before retry...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                else:
+                    logging.error(
+                        f"Failed to predict future for {ticker} after {max_retries} attempts"
+                    )
+                    raise
 
     def analyze(self, ticker, threshold=0.05):
-        predicted_price, predicted_probability = self.predict_price(ticker)
+        try:
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    predictions = self.predict_future(ticker)
 
-        current_price_data = yf.download(ticker, period="1d")["Close"]
+                    data = yf.download(ticker, period="1d")
+                    if data.empty:
+                        return f"Data not found {ticker}"
 
-        if current_price_data.empty:
-            logging.error(f"No current price data found for ticker: {ticker}")
-            return None
+                    current_price = float(data["Open"].iloc[-1])
 
-        current_price = current_price_data.iloc[-1]
+                    avg_prediction = np.mean(predictions)
+                    price_change = (avg_prediction - current_price) / current_price
 
-        if isinstance(current_price, pd.Series):
-            current_price = current_price.iloc[0]
+                    message = (
+                        "────────────────────────────\n"
+                        f"{self.forecast_days}-daily forecast for {ticker}\n"
+                        f"Current price: {current_price:.2f}\n"
+                        f"Average projected price: {avg_prediction:.2f}\n"
+                        f"Expected change: {price_change*100:.2f}%\n"
+                    )
 
-        # Ensure both prices are floats
-        current_price = float(current_price)
-        predicted_price = float(predicted_price)
+                    if price_change > threshold:
+                        message += "Recommendation: ACTIVELY BUY"
+                    elif price_change > threshold / 2:
+                        message += "Recommendation: BUY"
+                    elif price_change < -threshold:
+                        message += "Recommendation: ACTIVELY SELL"
+                    elif price_change < -threshold / 2:
+                        message += "Recommendation: SELL"
+                    else:
+                        message += "Recommendation: KEEP"
 
-        # Form the message
-        message = f"Predicted price for {ticker} next month: {predicted_price:.2f}$\nCurrent price: {current_price:.2f}$\n"
+                    return message
 
-        logging.info(f"Probability of price increase: {predicted_probability:.2f}")
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        time.sleep(5 * (attempt + 1))
+                    else:
+                        raise
 
-        price_change_percentage = (predicted_price - current_price) / current_price
+        except Exception as e:
+            logging.error(f"Error in analyze: {str(e)}", exc_info=True)
+            return "Error in generating the forecast. The API request limit may have been exceeded.."
 
-        message += f"────────────────────────────\nExpected price change: {price_change_percentage * 100:.2f}%\n"
-
-        if price_change_percentage > threshold:
-            message += "Advice: Buy"
-        elif price_change_percentage < -threshold:
-            message += "Advice: Sell"
-        else:
-            message += "Advice: Wait"
-        return message
-
-    def predict_plt(self, ticker, user_id, period="6mo"):
-        predicted_price, predicted_probability = self.predict_price(ticker)
-
-        historical_data = yf.download(ticker, period=period)
-
-        if historical_data.empty:
-            logging.error(f"No historical data found for ticker: {ticker}")
-            return None
-
-        # Определяем границы прогноза (например, ±5% от предсказанной цены)
-        min_forecast = predicted_price * 0.95  # Минимум на 5% ниже
-        max_forecast = predicted_price * 1.05  # Максимум на 5% выше
+    def predict_plt(self, ticker, user_id):
+        predictions = self.predict_future(ticker)
+        history = yf.download(ticker, period="6mo")["Open"]
 
         plt.figure(figsize=(14, 7))
+        plt.plot(history, label="Historical Price")
 
-        plt.plot(
-            historical_data.index,
-            historical_data["Open"],
-            label="Historical Open Price",
-            color="blue",
-        )
-
-        plt.plot(
-            historical_data.index,
-            historical_data["Close"],
-            label="Historical Close Price",
-            color="red",
-        )
-
-        future_dates = [
-            historical_data.index[-1] + timedelta(days=i + 30) for i in range(1, 31)
+        future_dates = pd.date_range(history.index[-1], periods=self.forecast_days + 1)[
+            1:
         ]
-
-        predicted_prices = [predicted_price] * len(future_dates)
-
         plt.plot(
             future_dates,
-            predicted_prices,
-            color="orange",
-            label="Predicted Price",
+            predictions,
+            label=f"{self.forecast_days}-day Forecast",
             linestyle="--",
         )
 
-        plt.scatter(
-            future_dates[0],
-            min_forecast,
-            color="purple",
-            label="Min Forecast",
-            zorder=5,
-            s=50,
+        plt.scatter(future_dates[0], predictions[0], color="red", zorder=5)
+        plt.scatter(future_dates[-1], predictions[-1], color="green", zorder=5)
+
+        plt.fill_between(
+            future_dates,
+            np.min(predictions) * 0.95,
+            np.max(predictions) * 1.05,
+            alpha=0.2,
+            color="gray",
         )
 
-        plt.scatter(
-            future_dates[0],
-            max_forecast,
-            color="gold",
-            label="Max Forecast",
-            zorder=5,
-            s=50,
-        )
-
-        plt.axhline(
-            y=min_forecast,
-            color="purple",
-            linestyle="--",
-            label="Min Forecast Boundary",
-        )
-        plt.axhline(
-            y=max_forecast, color="gold", linestyle="--", label="Max Forecast Boundary"
-        )
-
-        plt.text(
-            future_dates[0],
-            min_forecast + 2,
-            f"{min_forecast:.2f}",
-            fontsize=10,
-            color="purple",
-        )
-        plt.text(
-            future_dates[0],
-            max_forecast + 2,
-            f"{max_forecast:.2f}",
-            fontsize=10,
-            color="gold",
-        )
-
-        plt.scatter(
-            future_dates[0],
-            predicted_price,
-            color="red",
-            label="Predicted Price Point",
-            zorder=5,
-        )
-        plt.text(
-            future_dates[0],
-            predicted_price + 2,
-            f"{predicted_price:.2f}",
-            fontsize=10,
-            color="red",
-        )
-
-        plt.title(f"Price Prediction for {ticker}")
-        plt.xlabel("Date")
-        plt.ylabel("Price")
-
-        # Ensure single value
-        current_price = float(historical_data["Close"].iloc[-1])
-
-        plt.axhline(
-            y=current_price,
-            color="green",
-            linestyle="--",
-            label="Current Price",
-        )
-
-        filename = os.path.join(
-            os.getcwd(), "client_data", f"stock_plot_predict_{user_id}_{ticker}.png"
-        )
-
-        plt.axis("on")
+        plt.title(f"{ticker} Price Forecast")
         plt.legend()
-        plt.savefig(filename)
 
+        filename = f"forecast_{user_id}_{ticker}.png"
+        plt.savefig(filename)
         plt.close()
 
         return filename
 
+
 if __name__ == "__main__":
-    stock_predictor = StockPredictor()
-    print(stock_predictor.analyze("SBUX", 1))
-    stock_predictor.predict_plt("SBUX", 1)
+    ticker = "NVDA"
+    predictor = StockPredictor()
+    print(predictor.analyze(ticker))
+    print(predictor.predict_plt(ticker, "231312"))

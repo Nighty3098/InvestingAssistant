@@ -8,10 +8,15 @@ import requests
 from user_agent import generate_user_agent
 
 from config import app, logger
-from db import (create_connection, get_city_from_db, get_stocks_list,
-                process_stocks)
-from func import (convert_to_utc, get_time_difference, is_within_period,
-                  notify_user, parse_time_period, to_local)
+from db import create_connection, get_city_from_db, get_stocks_list, process_stocks
+from func import (
+    convert_to_utc,
+    get_time_difference,
+    is_within_period,
+    notify_user,
+    parse_time_period,
+    to_local,
+)
 from model.influence_core import predict_price_influence
 
 links = [

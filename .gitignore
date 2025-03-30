@@ -13,3 +13,4 @@ src/stock.png
 /src/model/__pycache__
 .venv/
 src/client_data/*.png
+.qodo
