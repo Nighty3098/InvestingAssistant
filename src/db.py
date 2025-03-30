@@ -1,6 +1,7 @@
 import asyncio
 import os
 import sqlite3
+import time
 
 import yfinance as yf
 from matplotlib.backend_bases import cursors
@@ -43,14 +44,31 @@ def get_more_info(ticker):
 
 
 def get_stock_info(ticker):
-    stock = yf.Ticker(ticker)
+    max_retries = 3
+    retry_delay = 5
 
-    stock_info = stock.info
+    for attempt in range(max_retries):
+        try:
+            stock = yf.Ticker(ticker)
+            stock_info = stock.info
 
-    stock_name = stock_info.get("longName", "Name not found")
-    stock_price = stock_info.get("currentPrice", "Price not found")
+            stock_name = stock_info.get("longName", "Name not found")
+            stock_price = stock_info.get("currentPrice", "Price not found")
 
-    return stock_name, stock_price
+            return stock_name, stock_price
+        except Exception as e:
+            logger.warning(
+                f"Attempt {attempt+1}/{max_retries} failed for {ticker}: {str(e)}"
+            )
+            if attempt < max_retries - 1:
+                logger.info(f"Waiting {retry_delay} seconds before retry...")
+                time.sleep(retry_delay)
+                retry_delay *= 2
+            else:
+                logger.error(
+                    f"Failed to get stock info for {ticker} after {max_retries} attempts"
+                )
+                return f"{ticker}", "Error"
 
 
 def get_promo_by_code(ticker):
@@ -142,25 +160,31 @@ def is_admin(user_id):
     try:
         connection = create_connection()
         cursor = connection.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT r.role_name FROM users u 
             JOIN roles r ON u.role_id = r.id 
-            WHERE u.user_id = ?""", (user_id,))
+            WHERE u.user_id = ?""",
+            (user_id,),
+        )
         result = cursor.fetchone()
 
-        return result and result[0] == 'admin'
+        return result and result[0] == "admin"
     except Exception as e:
         logger.error(f"Error: '{e}'")
         return False
+
 
 def get_all_admins(connection=create_connection()):
     """Get all admin usernames."""
     try:
         cursor = connection.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT u.username FROM users u 
             JOIN roles r ON u.role_id = r.id 
-            WHERE r.role_name = 'admin'""")
+            WHERE r.role_name = 'admin'"""
+        )
         admins = cursor.fetchall()
 
         admin_usernames = [admin[0] for admin in admins]
@@ -181,7 +205,10 @@ def add_admin_role(username, connection=create_connection()):
         role_id = cursor.fetchone()
 
         if role_id:
-            cursor.execute("UPDATE users SET role_id = ? WHERE username = ?", (role_id[0], username))
+            cursor.execute(
+                "UPDATE users SET role_id = ? WHERE username = ?",
+                (role_id[0], username),
+            )
             connection.commit()
 
             if cursor.rowcount > 0:
@@ -201,7 +228,9 @@ def remove_admin_role(username, connection=create_connection()):
         cursor = connection.cursor()
 
         # Set role_id to NULL (or you can set it to a default user role)
-        cursor.execute("UPDATE users SET role_id = NULL WHERE username = ?", (username,))
+        cursor.execute(
+            "UPDATE users SET role_id = NULL WHERE username = ?", (username,)
+        )
         connection.commit()
 
         if cursor.rowcount > 0:
@@ -272,17 +301,18 @@ def registering_user(connection, user_id, username):
 
 
 def remove_account(connection, user_id):
-        """Remove user's account"""
-        try:
-            cursor = connection.cursor()
+    """Remove user's account"""
+    try:
+        cursor = connection.cursor()
 
-            cursor.execute("DELETE FROM stocks WHERE user_id = ?", (user_id,))
-            cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+        cursor.execute("DELETE FROM stocks WHERE user_id = ?", (user_id,))
+        cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
 
-            connection.commit()
-            logger.warning(f"User with user_id {user_id} deleted successfully")
-        except Exception as e:
-            logger.error(f"Error '{e}' while deleting user with user_id {user_id}")
+        connection.commit()
+        logger.warning(f"User with user_id {user_id} deleted successfully")
+    except Exception as e:
+        logger.error(f"Error '{e}' while deleting user with user_id {user_id}")
+
 
 def get_user_role(connection, user_id):
     try:
@@ -298,6 +328,7 @@ def get_user_role(connection, user_id):
         logger.error(f"Error fetching network tokens for user_id {user_id}: {e}")
         return ""
 
+
 def get_network_tokens(connection, user_id):
     try:
         cursor = connection.cursor()
@@ -312,15 +343,20 @@ def get_network_tokens(connection, user_id):
         logger.error(f"Error fetching network tokens for user_id {user_id}: {e}")
         return 0
 
+
 def update_tokens(connection, user_id, token_change):
     sign = token_change[0]
     amount = int(token_change[1:])
 
     if sign == "+":
-        update_query = "UPDATE users SET network_tokens = network_tokens + ? WHERE user_id = ?"
+        update_query = (
+            "UPDATE users SET network_tokens = network_tokens + ? WHERE user_id = ?"
+        )
         params = (amount, user_id)
     elif sign == "-":
-        update_query = "UPDATE users SET network_tokens = network_tokens - ? WHERE user_id = ?"
+        update_query = (
+            "UPDATE users SET network_tokens = network_tokens - ? WHERE user_id = ?"
+        )
         params = (amount, user_id)
     else:
         raise ValueError("Invalid token change format. Use '+<number>' or '-<number>'.")
@@ -334,6 +370,7 @@ def update_tokens(connection, user_id, token_change):
     except Exception as e:
         logger.error(f"Error updating network_tokens: {e}")
         return False
+
 
 def get_id_by_username(connection, username):
     try:
@@ -353,23 +390,31 @@ def get_id_by_username(connection, username):
 def get_stocks(connection, user_id):
     cursor = connection.cursor()
 
-    cursor.execute(
-        "SELECT stock_name FROM stocks WHERE user_id=?", (user_id,)
-    )
+    cursor.execute("SELECT stock_name FROM stocks WHERE user_id=?", (user_id,))
     rows = cursor.fetchall()
 
     stock_prices = {}
 
     for row in rows:
         stock_name = row[0]
-        stock_price = get_stock_info(stock_name)[1]
+        try:
+            name, price = get_stock_info(stock_name)
 
-        if stock_price is not None:
-            stock_prices[stock_name] = stock_price
+            if price != "Error" and not isinstance(price, str):
+                stock_prices[stock_name] = price
+            else:
+                stock_prices[stock_name] = 0
+                logger.warning(
+                    f"Could not get valid price for {stock_name}, using default value 0"
+                )
 
-        logger.debug(f"{user_id}: {stock_name} - {stock_price}")
+            logger.debug(f"{user_id}: {stock_name} - {price}")
+        except Exception as e:
+            logger.error(f"Error getting stock price for {stock_name}: {e}")
+            stock_prices[stock_name] = 0
 
     return stock_prices
+
 
 def get_stocks_list(connection, user_id):
     cursor = connection.cursor()
@@ -380,7 +425,6 @@ def get_stocks_list(connection, user_id):
     rows = cursor.fetchall()
 
     return [(row[0], row[1]) for row in rows]
-
 
 
 def process_stocks(connection, user_id):
@@ -401,6 +445,7 @@ def process_stocks(connection, user_id):
         )
 
     return stocks_info_list
+
 
 def get_users_stocks(connection, user_id):
     response_message = ""
@@ -428,7 +473,9 @@ def get_users_stocks(connection, user_id):
                 f"🚀 **{stock_name} - {stock_price}$**\n"
                 f"__💵 {quantity} = {round(float(quantity) * float(stock_price), 2)}$__\n\n"
             )
-            logger.info(f"Stocks: {stock_name} - {stock_price}$: {quantity} = {float(quantity) * float(stock_price)}")
+            logger.info(
+                f"Stocks: {stock_name} - {stock_price}$: {quantity} = {float(quantity) * float(stock_price)}"
+            )
 
             percent_complete = (index + 1) / total_stocks * 100
             logger.debug(f"Progress: {percent_complete:.2f}%")
@@ -437,8 +484,6 @@ def get_users_stocks(connection, user_id):
         logger.error(f"Error '{e}' while getting user's stocks")
 
     return response_message
-
-
 
 
 def add_stock_to_db(user_id, username, stock_name, quantity):
@@ -461,6 +506,7 @@ def add_stock_to_db(user_id, username, stock_name, quantity):
     finally:
         conn.close()
 
+
 def remove_stock_from_db(user_id, stock_name):
     conn = create_connection()
     cursor = conn.cursor()
@@ -478,6 +524,7 @@ def remove_stock_from_db(user_id, stock_name):
         return False
     finally:
         conn.close()
+
 
 def update_stock_quantity(user_id, stock_name, quantity):
     conn = create_connection()
@@ -506,7 +553,6 @@ def update_stock_quantity(user_id, stock_name, quantity):
         return False
     finally:
         conn.close()
-
 
 
 def id_by_user_id(user_id):
