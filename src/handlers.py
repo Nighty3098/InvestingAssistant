@@ -108,8 +108,8 @@ async def start(client, message):
                     parse_mode=enums.ParseMode.MARKDOWN,
                 )
 
-            start_parsing_thread(user_id)
-            start_price_monitor_thread(user_id)
+            # start_parsing_thread(user_id)
+            # start_price_monitor_thread(user_id)
 
         else:
             photo_path = "resources/header.png"
