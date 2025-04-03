@@ -524,7 +524,7 @@ async def handle_input(client, message):
                 f"Dividend yield: {info['dividend_yield']}\n"
                 f"P/E ratio: {info['pe_ratio']}\n"
                 f"EPS: {info['eps']}\n"
-                f"Target mean price: {info['target_mean_price']}$\n"
+                # f"Target mean price: {info['target_mean_price']}$\n"
                 # f"Target high price: {info['target_high_price']}$\n"
                 # f"Target low price: {info['target_low_price']}$\n"
                 # f"────────────────────────────\n"

@@ -11,7 +11,9 @@ import tensorflow as tf
 import yfinance as yf
 from keras.models import load_model
 from sklearn.preprocessing import MinMaxScaler
+
 from config import logger
+
 
 class StockPredictor:
     def __init__(self, model_path=None, scaler_path=None):
@@ -44,7 +46,7 @@ class StockPredictor:
             )
 
     def predict_future(self, ticker):
-        if not hasattr(self, 'scaler') or not isinstance(self.scaler, MinMaxScaler):
+        if not hasattr(self, "scaler") or not isinstance(self.scaler, MinMaxScaler):
             self.scaler = MinMaxScaler()
             logger.info("Initialized new MinMaxScaler")
 
@@ -63,7 +65,7 @@ class StockPredictor:
 
                 feature_data = data[["Open", "High", "Low", "Close", "Volume"]].values
 
-                if not hasattr(self.scaler, 'data_min_'):
+                if not hasattr(self.scaler, "data_min_"):
                     self.scaler.fit(feature_data)
                     logger.info(f"Scaler fitted with data for {ticker}")
 
@@ -71,40 +73,54 @@ class StockPredictor:
 
                 # Ensure current_window has exactly self.window_size (60) time steps
                 if len(scaled_data) < self.window_size:
-                    raise ValueError(f"Not enough data points ({len(scaled_data)}) for window_size {self.window_size}")
-                current_window = scaled_data[-self.window_size:]  # Shape: (60, 5)
+                    raise ValueError(
+                        f"Not enough data points ({len(scaled_data)}) for window_size {self.window_size}"
+                    )
+                current_window = scaled_data[-self.window_size :]  # Shape: (60, 5)
 
                 predictions = []
                 for _ in range(self.forecast_days):
                     # Predict with shape (1, 60, 5)
-                    next_pred = self.model.predict(current_window[np.newaxis, ...])[0][0]
+                    next_pred = self.model.predict(current_window[np.newaxis, ...])[0][
+                        0
+                    ]
 
-                    new_row = np.array([[
-                        next_pred,  # Open
-                        next_pred,  # High
-                        next_pred,  # Low
-                        next_pred,  # Close
-                        current_window[-1, 4],  # Volume
-                    ]])
+                    new_row = np.array(
+                        [
+                            [
+                                next_pred,  # Open
+                                next_pred,  # High
+                                next_pred,  # Low
+                                next_pred,  # Close
+                                current_window[-1, 4],  # Volume
+                            ]
+                        ]
+                    )
 
-                    current_window = np.concatenate([current_window[1:], new_row], axis=0)
+                    current_window = np.concatenate(
+                        [current_window[1:], new_row], axis=0
+                    )
                     predictions.append(next_pred)
 
                 dummy_data = np.zeros((len(predictions), 5))
                 dummy_data[:, 0] = predictions
-                
+
                 predictions = self.scaler.inverse_transform(dummy_data)[:, 0]
 
                 return predictions
 
             except Exception as e:
-                logger.warning(f"Attempt {attempt+1}/{max_retries} failed for {ticker}: {str(e)}")
+                logger.warning(
+                    f"Attempt {attempt+1}/{max_retries} failed for {ticker}: {str(e)}"
+                )
                 if attempt < max_retries - 1:
                     logger.info(f"Waiting {retry_delay} seconds before retry...")
                     time.sleep(retry_delay)
                     retry_delay *= 2
                 else:
-                    logger.error(f"Failed to predict future for {ticker} after {max_retries} attempts")
+                    logger.error(
+                        f"Failed to predict future for {ticker} after {max_retries} attempts"
+                    )
                     raise
 
     def analyze(self, ticker, threshold=0.05):
@@ -126,8 +142,8 @@ class StockPredictor:
                     message = (
                         "────────────────────────────\n"
                         f"{self.forecast_days}-daily forecast for {ticker}\n"
-                        f"Current price: {current_price:.2f}\n"
-                        f"Average projected price: {avg_prediction:.2f}\n"
+                        f"Current price: {current_price:.2f}$\n"
+                        f"Average projected price: {avg_prediction:.2f}$\n"
                         f"Expected change: {price_change*100:.2f}%\n"
                     )
 
@@ -158,10 +174,15 @@ class StockPredictor:
         predictions = self.predict_future(ticker)
         history = yf.download(ticker, period="6mo")["Open"]
 
-        plt.figure(figsize=(14, 7))
-        plt.plot(history, label="Historical Price")
+        history_close = yf.download(ticker, period="6mo")["Close"]
 
-        future_dates = pd.date_range(history.index[-1], periods=self.forecast_days + 1)[1:]
+        plt.figure(figsize=(14, 7))
+        plt.plot(history, label="Historical Open Price")
+        plt.plot(history_close, label="Historical Close Price")
+
+        future_dates = pd.date_range(history.index[-1], periods=self.forecast_days + 1)[
+            1:
+        ]
         plt.plot(
             future_dates,
             predictions,
@@ -176,7 +197,7 @@ class StockPredictor:
             future_dates,
             np.min(predictions) * 0.95,
             np.max(predictions) * 1.05,
-            alpha=0.2,
+            alpha=0.1,
             color="gray",
         )
 
