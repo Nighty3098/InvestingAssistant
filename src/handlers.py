@@ -29,6 +29,10 @@ from db import (
     remove_stock_from_db,
     update_stock_quantity,
     update_tokens,
+    get_users_list,
+    check_user_ban,
+    block_user,
+    unblock_user,
 )
 from func import (
     log_resource_usage,
@@ -41,7 +45,7 @@ from func import (
     start_parsing_thread,
     start_price_monitor_thread,
 )
-from kb_builder.admin_panel import admin_kb, admin_panel
+from kb_builder.admin_panel import admin_kb, admin_panel, users_control
 from kb_builder.user_panel import (
     back_kb,
     back_stocks_kb,
@@ -87,38 +91,48 @@ async def start(client, message):
         connection = create_connection()
         create_users_table(connection)
 
-        if check_user_account(connection, user_id):
-            photo_path = "resources/header.png"
-            logger.info(f"New User: {user_id} - {username}")
+        if check_user_ban(username):
+            if check_user_account(connection, user_id):
+                photo_path = "resources/header.png"
+                logger.info(f"New User: {user_id} - {username}")
 
-            if is_admin(user_id):
-                await app.send_photo(
-                    photo=photo_path,
-                    chat_id=user_id,
-                    caption=WELCOME_MESSAGE,
-                    reply_markup=admin_kb,
-                    parse_mode=enums.ParseMode.MARKDOWN,
-                )
+                if is_admin(user_id):
+                    await app.send_photo(
+                        photo=photo_path,
+                        chat_id=user_id,
+                        caption=WELCOME_MESSAGE,
+                        reply_markup=admin_kb,
+                        parse_mode=enums.ParseMode.MARKDOWN,
+                    )
+                else:
+                    await app.send_photo(
+                        photo=photo_path,
+                        chat_id=user_id,
+                        caption=WELCOME_MESSAGE,
+                        reply_markup=main_kb,
+                        parse_mode=enums.ParseMode.MARKDOWN,
+                    )
+
+                # start_parsing_thread(user_id)
+                # start_price_monitor_thread(user_id)
             else:
+                photo_path = "resources/header.png"
+                logger.info(f"New User: {user_id} - {username} on registering")
                 await app.send_photo(
                     photo=photo_path,
                     chat_id=user_id,
-                    caption=WELCOME_MESSAGE,
-                    reply_markup=main_kb,
+                    caption=not_register_message,
+                    reply_markup=register_user_kb,
                     parse_mode=enums.ParseMode.MARKDOWN,
                 )
-
-            # start_parsing_thread(user_id)
-            # start_price_monitor_thread(user_id)
-
         else:
             photo_path = "resources/header.png"
-            logger.info(f"New User: {user_id} - {username} on registering")
+            logger.info(f"New User: {user_id} - {username} - banned")
             await app.send_photo(
                 photo=photo_path,
                 chat_id=user_id,
-                caption=not_register_message,
-                reply_markup=register_user_kb,
+                caption=f"{username}, you are banned. Please contact the administrator for details",
+                reply_markup=None,
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
     except Exception as e:
@@ -199,15 +213,58 @@ async def answer(client, callback_query):
             message = f"Welcome to admin panel\n"
 
             if is_admin(user_id):
-                await app.send_photo(
-                    photo=photo_path,
-                    chat_id=user_id,
-                    caption=message,
+                await callback_query.message.edit_text(
+                    message,
                     reply_markup=admin_panel,
                     parse_mode=enums.ParseMode.MARKDOWN,
                 )
             else:
                 pass
+
+        if data == "users_menu":
+            users_list = get_users_list(connection=create_connection())
+            if users_list:
+                message = f"Username - id - tokens - role - status\n"
+                for user in users_list:
+                    user_status = ""
+                    _ = check_user_ban(user[1])
+                    if _ == True:
+                        user_status = "Banned"
+                    else:
+                        user_status = "Active"
+                    message += f"\n@{user[1]} - {user[0]} - {user[2]} - {user[3]} - {user_status}"
+
+            if is_admin(user_id):
+                try:
+                    await callback_query.message.edit_text(
+                        message,
+                        parse_mode=enums.ParseMode.MARKDOWN,
+                        reply_markup=users_control,
+                    )
+                except Exception as e:
+                    logger.error(f"Error: {e}")
+
+        if data == "ban_user":
+            try:
+                user_states[user_id] = "ban_user"
+                await callback_query.message.edit_text(
+                    "Enter username:",
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                    reply_markup=back_kb,
+                )
+            except Exception as e:
+                logger.error(f"Error: {e}")
+
+        if data == "unblock_user":
+            try:
+                user_states[user_id] = "unblock_user"
+                await callback_query.message.edit_text(
+                    "Enter username:",
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                    reply_markup=back_kb,
+                )
+            except Exception as e:
+                logger.error(f"Error: {e}")
 
         if data == "get_price":
             global price_sent_message
@@ -398,6 +455,14 @@ async def handle_input(client, message):
     state = user_states.get(user_id)
     photo_path = "resources/header.png"
 
+    if state == "unblock_user":
+        unblock_user(username, message)
+        return
+
+    if state == "ban_user":
+        block_user(username, message)
+        return
+
     if state == "add_admin":
         try:
             data = message.text
@@ -507,7 +572,7 @@ async def handle_input(client, message):
         advice_message = predictor.analyze(data)
 
         predict_path = predictor.predict_plt(data, user_id)
-        image_path = create_plt_price(data, user_id)
+        # image_path = create_plt_price(data, user_id)
 
         update_tokens(create_connection(), user_id, "-1")
         updated_tokens = get_network_tokens(create_connection(), user_id)
@@ -524,7 +589,7 @@ async def handle_input(client, message):
                 f"Dividend yield: {info['dividend_yield']}\n"
                 f"P/E ratio: {info['pe_ratio']}\n"
                 f"EPS: {info['eps']}\n"
-                f"Target mean price: {info['target_mean_price']}$\n"
+                # f"Target mean price: {info['target_mean_price']}$\n"
                 # f"Target high price: {info['target_high_price']}$\n"
                 # f"Target low price: {info['target_low_price']}$\n"
                 # f"────────────────────────────\n"

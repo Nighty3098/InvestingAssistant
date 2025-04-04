@@ -1,6 +1,7 @@
 import os
 import pickle
 import re
+
 import numpy as np
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -18,28 +19,28 @@ except FileNotFoundError as e:
 
 MAX_LEN = 100
 
+
 def clean_text(text):
     """Clean text by removing special characters, normalizing whitespace, and converting to lowercase."""
     text = re.sub(r"[^a-zA-Z\s]", "", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text.lower()
 
+
 def predict_price_influence(news_article):
     """Predict the price influence of a news article."""
     cleaned_article = clean_text(news_article)
     sequence = tokenizer.texts_to_sequences([cleaned_article])
     padded_sequence = pad_sequences(
-        sequence, 
-        maxlen=MAX_LEN, 
-        padding='post', 
-        truncating='post'
+        sequence, maxlen=MAX_LEN, padding="post", truncating="post"
     )
 
     prediction = model.predict(padded_sequence, verbose=0)
     probability = prediction[0][0]
-    
+
     influence = "Positive Influence" if probability > 0.5 else "Negative Influence"
-    return f"{influence} (Probability: {probability:.4f})"
+    return f"{influence} (Probability: {probability:.1f})"
+
 
 if __name__ == "__main__":
     new_article = """
@@ -50,6 +51,6 @@ if __name__ == "__main__":
     The acquisition has faced opposition within the U.S. since it was announced last year, with both Biden and his incoming successor Donald Trump publicly indicating their intentions to block the purchase.
     CFIUS told the two companies in September that the deal would create national security risks because it could hurt the supply of steel needed for critical transportation, construction and agriculture projects, according to a letter seen by Reuters.
     """
-    
+
     result = predict_price_influence(new_article)
     print(f"Predicted Influence: {result}")
