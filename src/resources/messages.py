@@ -1,6 +1,7 @@
-
 WELCOME_MESSAGE = f"""
-🫠 **Hello, I'm IPSA - your investing assistant. I will keep you up to date with the latest news about your stocks**
+🫠 **Hello, I'm IPSA - your investment assistant.
+
+I will keep you up to date with the latest news about your stocks and help you forecast prices**.
 """
 
 ASSETS_MESSAGE = """
@@ -64,3 +65,4 @@ select_lang_dialog = """
 hvnt_network_tokens = """
 You have run out of free tokens. To continue, subscribe and contact the administrator
 """
+

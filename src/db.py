@@ -107,6 +107,7 @@ def create_users_table(connection):
             network_tokens INTEGER,
             role_id INTEGER,
             city TEXT,
+            is_banned INTEGER DEFAULT 0,
             FOREIGN KEY (role_id) REFERENCES roles(id))"""
         )
         connection.commit()
@@ -134,8 +135,44 @@ def create_table(connection):
     except Exception as e:
         logger.error(f"Error '{e}' while creating tables")
 
+def check_user_ban(username, connection=create_connection()):
+    """Check if user is banned"""
+    try:
+        cursor = connection.cursor()
+        cursor.execute("SELECT is_banned FROM users WHERE username = ?", (username,))
+        result = cursor.fetchone()
+        if result[0] == 1:
+            return True
+        else:
+            return False
+    except Exception as e:
+        logger.error(f"Error '{e}' while checking user ban")
 
-def create_roles_table(connection):
+def block_user(username, connection=create_connection()):
+    """Block user by setting is_banned to 1"""
+    try:
+        if not hasattr(connection, 'cursor'):
+            connection = create_connection()
+        cursor = connection.cursor()
+        cursor.execute("UPDATE users SET is_banned = 1 WHERE username = ?", (username,))
+        connection.commit()
+        logger.info("User blocked successfully")
+    except Exception as e:
+        logger.error(f"Error '{e}' while blocking user")
+
+def unblock_user(username, connection=create_connection()):
+    """Unblock user by setting is_banned to 0"""
+    try:
+        if not hasattr(connection, 'cursor'):
+            connection = create_connection()
+        cursor = connection.cursor()
+        cursor.execute("UPDATE users SET is_banned = 0 WHERE username = ?", (username,))
+        connection.commit()
+        logger.info("User unblocked successfully")
+    except Exception as e:
+        logger.error(f"Error '{e}' while unblocking user")
+
+def create_roles_table(connection=create_connection()):
     """Create roles table if it does not exist."""
     try:
         cursor = connection.cursor()
@@ -317,17 +354,28 @@ def remove_account(connection, user_id):
 def get_user_role(connection, user_id):
     try:
         cursor = connection.cursor()
-        cursor.execute("SELECT role FROM users WHERE user_id = ?", (user_id,))
+        cursor.execute("SELECT role_id FROM users WHERE user_id = ?", (user_id,))
         result = cursor.fetchone()
 
         if result is not None:
-            return result[0]
+            cursor.execute("SELECT role_name FROM roles WHERE id = ?", (result[0],))
+            role_name = cursor.fetchone()
+            return role_name[0] if role_name else ""
         else:
             return ""
     except Exception as e:
-        logger.error(f"Error fetching network tokens for user_id {user_id}: {e}")
+        logger.error(f"Error fetching user role for user_id {user_id}: {e}")
         return ""
 
+def get_users_list(connection):
+    try:
+        cursor = connection.cursor()
+        cursor.execute("SELECT user_id, username, network_tokens, role_id FROM users")
+        result = cursor.fetchall()
+        return result
+    except Exception as e:
+        logger.error(f"Error fetching users list: {e}")
+        return []
 
 def get_network_tokens(connection, user_id):
     try:
