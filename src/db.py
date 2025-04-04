@@ -6,7 +6,7 @@ import time
 import yfinance as yf
 from matplotlib.backend_bases import cursors
 
-from config import home_dir, logger
+from config import home_dir, logger, DEVELOPER
 
 
 def get_more_info(ticker):
@@ -315,7 +315,7 @@ def registering_user(connection, user_id, username):
             return  # Or handle the error as needed
 
         # Check for special case for admin registration
-        if username == "Night3098":
+        if username == DEVELOPER:
             # Get the id of the 'admin' role
             cursor.execute("SELECT id FROM roles WHERE role_name = 'admin'")
             admin_role_id = cursor.fetchone()

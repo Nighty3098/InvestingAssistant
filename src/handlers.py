@@ -91,7 +91,7 @@ async def start(client, message):
         connection = create_connection()
         create_users_table(connection)
 
-        if check_user_ban(username):
+        if check_user_ban(username) == False:
             if check_user_account(connection, user_id):
                 photo_path = "resources/header.png"
                 logger.info(f"New User: {user_id} - {username}")
