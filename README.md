@@ -43,6 +43,7 @@ cd src
 API_ID = ''
 API_HASH = ''
 BOT_TOKEN = ""
+DEVELOPER_USERNAME = ""
 ```
 
 #### Run
@@ -57,20 +58,9 @@ python3 main.py
 
 ### **`💵 Support me`**
 
+<br>
+<br>
 <img src="https://github.com/Nighty3098/CodeKeeper/blob/main/imgs/toncoin.png?raw=true" width="45px"/>
 <br>
 
 ***`UQCF-sPDO0QqkNtvy5CKSvYWEsZS6l7vzaytV36oYM0SNhKt`***
-
-<br>
-<details>
-<summary>Screenshots</summary>
-
-<img src="images/1.png" width="45%" />
-<img src="images/2.png" width="45%" />
-<br/>
-<img src="images/3.png" width="45%" />
-<img src="images/4.png" width="45%" />
-
-</details>
-</div>

@@ -6,7 +6,7 @@ import time
 import yfinance as yf
 from matplotlib.backend_bases import cursors
 
-from config import home_dir, logger
+from config import home_dir, logger, DEVELOPER
 
 
 def get_more_info(ticker):
@@ -135,6 +135,7 @@ def create_table(connection):
     except Exception as e:
         logger.error(f"Error '{e}' while creating tables")
 
+
 def check_user_ban(username, connection=create_connection()):
     """Check if user is banned"""
     try:
@@ -142,16 +143,17 @@ def check_user_ban(username, connection=create_connection()):
         cursor.execute("SELECT is_banned FROM users WHERE username = ?", (username,))
         result = cursor.fetchone()
         if result[0] == 1:
-            return True
+            return True  # Active
         else:
-            return False
+            return False  # Banned
     except Exception as e:
         logger.error(f"Error '{e}' while checking user ban")
+
 
 def block_user(username, connection=create_connection()):
     """Block user by setting is_banned to 1"""
     try:
-        if not hasattr(connection, 'cursor'):
+        if not hasattr(connection, "cursor"):
             connection = create_connection()
         cursor = connection.cursor()
         cursor.execute("UPDATE users SET is_banned = 1 WHERE username = ?", (username,))
@@ -160,10 +162,11 @@ def block_user(username, connection=create_connection()):
     except Exception as e:
         logger.error(f"Error '{e}' while blocking user")
 
+
 def unblock_user(username, connection=create_connection()):
     """Unblock user by setting is_banned to 0"""
     try:
-        if not hasattr(connection, 'cursor'):
+        if not hasattr(connection, "cursor"):
             connection = create_connection()
         cursor = connection.cursor()
         cursor.execute("UPDATE users SET is_banned = 0 WHERE username = ?", (username,))
@@ -171,6 +174,7 @@ def unblock_user(username, connection=create_connection()):
         logger.info("User unblocked successfully")
     except Exception as e:
         logger.error(f"Error '{e}' while unblocking user")
+
 
 def create_roles_table(connection=create_connection()):
     """Create roles table if it does not exist."""
@@ -311,7 +315,7 @@ def registering_user(connection, user_id, username):
             return  # Or handle the error as needed
 
         # Check for special case for admin registration
-        if username == "Night3098":
+        if username == DEVELOPER:
             # Get the id of the 'admin' role
             cursor.execute("SELECT id FROM roles WHERE role_name = 'admin'")
             admin_role_id = cursor.fetchone()
@@ -367,6 +371,7 @@ def get_user_role(connection, user_id):
         logger.error(f"Error fetching user role for user_id {user_id}: {e}")
         return ""
 
+
 def get_users_list(connection):
     try:
         cursor = connection.cursor()
@@ -376,6 +381,7 @@ def get_users_list(connection):
     except Exception as e:
         logger.error(f"Error fetching users list: {e}")
         return []
+
 
 def get_network_tokens(connection, user_id):
     try:
