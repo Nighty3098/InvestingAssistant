@@ -80,8 +80,8 @@ def get_time_difference(document_date, timezone):
 
 async def check_stock_prices(user_id):
     from db import get_stock_info, get_stocks
-    
-    retry_delay = 60  # Начальная задержка в секундах между циклами проверки
+
+    retry_delay = 60
 
     while True:
         try:
@@ -91,17 +91,17 @@ async def check_stock_prices(user_id):
             for stock_name in stock_prices.keys():
                 try:
                     _, current_price = get_stock_info(stock_name)
-                    
+
                     if current_price == "Error" or isinstance(current_price, str):
                         logger.error(f"Error getting stock price for: {stock_name} {current_price}")
                         continue
-                        
+
                     old_price = float(stock_prices[stock_name]) if stock_prices[stock_name] != 0 else 0
                     new_price = float(current_price)
-                    
+
                     if old_price == 0:
                         continue  # Пропускаем сравнение, если не было предыдущей цены
-                        
+
                     price_diff = abs((new_price - old_price) / old_price) * 100
 
                     if price_diff > 3:
@@ -127,15 +127,12 @@ async def check_stock_prices(user_id):
                     logger.error(f"Error processing stock {stock_name}: {e}")
                     continue
 
-            # Успешно получили все данные, устанавливаем нормальную задержку
             retry_delay = 60
-            
+
         except Exception as e:
             logger.error(f"Error in check_stock_prices: {e}")
-            # Увеличиваем задержку при возникновении ошибок
-            retry_delay = min(retry_delay * 2, 3600)  # Максимальная задержка 1 час
-            
-        # Ждем перед следующей проверкой
+            retry_delay = min(retry_delay * 2, 3600)
+
         await asyncio.sleep(retry_delay)
 
 

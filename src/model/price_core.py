@@ -204,7 +204,7 @@ class StockPredictor:
         plt.title(f"{ticker} Price Forecast")
         plt.legend()
 
-        filename = f"forecast_{user_id}_{ticker}.png"
+        filename = f"client_data/forecast_{user_id}_{ticker}.png"
         plt.savefig(filename)
         plt.close()
 
