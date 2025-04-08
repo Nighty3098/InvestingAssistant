@@ -12,9 +12,6 @@ import yfinance as yf
 from keras.models import load_model
 from sklearn.preprocessing import MinMaxScaler
 
-from config import logger
-
-
 class StockPredictor:
     def __init__(self, model_path=None, scaler_path=None):
         self.base_dir = Path(__file__).parent.parent / "IPSA_MODEL" / "price"
@@ -26,8 +23,7 @@ class StockPredictor:
         self.model = load_model(str(self.model_path))
         self.scaler = joblib.load(str(self.scaler_path))
 
-        # Set window_size to match the model's expected input (60 time steps)
-        self.window_size = 60  # Changed from 365 to match model expectation
+        self.window_size = 60
         self.forecast_days = 60
 
     def _check_files_exist(self):
@@ -48,7 +44,7 @@ class StockPredictor:
     def predict_future(self, ticker):
         if not hasattr(self, "scaler") or not isinstance(self.scaler, MinMaxScaler):
             self.scaler = MinMaxScaler()
-            logger.info("Initialized new MinMaxScaler")
+            print("Initialized new MinMaxScaler")
 
         end_date = datetime.now()
         start_date = end_date - timedelta(days=self.window_size + self.forecast_days)
@@ -58,29 +54,31 @@ class StockPredictor:
 
         for attempt in range(max_retries):
             try:
-                data = yf.download(ticker, start=start_date, end=end_date)
+                data = yf.Ticker(ticker).history('2y')
+
+                print(f"Data shape: {data.shape}")
+                print(f"Data: {data}")
 
                 if data.empty:
                     raise ValueError(f"No historical data for {ticker}")
 
-                feature_data = data[["Open", "High", "Low", "Close", "Volume"]].values
+                feature_data = data.values
 
                 if not hasattr(self.scaler, "data_min_"):
                     self.scaler.fit(feature_data)
-                    logger.info(f"Scaler fitted with data for {ticker}")
+                    print(f"Scaler fitted with data for {ticker}")
 
                 scaled_data = self.scaler.transform(feature_data)
 
-                # Ensure current_window has exactly self.window_size (60) time steps
                 if len(scaled_data) < self.window_size:
                     raise ValueError(
                         f"Not enough data points ({len(scaled_data)}) for window_size {self.window_size}"
                     )
-                current_window = scaled_data[-self.window_size :]  # Shape: (60, 5)
-
+                
+                current_window = scaled_data[-self.window_size:]
+                
                 predictions = []
                 for _ in range(self.forecast_days):
-                    # Predict with shape (1, 60, 5)
                     next_pred = self.model.predict(current_window[np.newaxis, ...])[0][
                         0
                     ]
@@ -88,11 +86,13 @@ class StockPredictor:
                     new_row = np.array(
                         [
                             [
-                                next_pred,  # Open
-                                next_pred,  # High
-                                next_pred,  # Low
-                                next_pred,  # Close
-                                current_window[-1, 4],  # Volume
+                                next_pred,
+                                next_pred,
+                                next_pred,
+                                next_pred,
+                                next_pred,
+                                next_pred,
+                                next_pred
                             ]
                         ]
                     )
@@ -102,7 +102,7 @@ class StockPredictor:
                     )
                     predictions.append(next_pred)
 
-                dummy_data = np.zeros((len(predictions), 5))
+                dummy_data = np.zeros((len(predictions),7))
                 dummy_data[:, 0] = predictions
 
                 predictions = self.scaler.inverse_transform(dummy_data)[:, 0]
@@ -110,15 +110,15 @@ class StockPredictor:
                 return predictions
 
             except Exception as e:
-                logger.warning(
+                print(
                     f"Attempt {attempt+1}/{max_retries} failed for {ticker}: {str(e)}"
                 )
                 if attempt < max_retries - 1:
-                    logger.info(f"Waiting {retry_delay} seconds before retry...")
+                    print(f"Waiting {retry_delay} seconds before retry...")
                     time.sleep(retry_delay)
                     retry_delay *= 2
                 else:
-                    logger.error(
+                    print(
                         f"Failed to predict future for {ticker} after {max_retries} attempts"
                     )
                     raise
@@ -158,6 +158,8 @@ class StockPredictor:
                     else:
                         message += "Recommendation: KEEP"
 
+                    print(message)
+
                     return message
 
                 except Exception as e:
@@ -167,14 +169,14 @@ class StockPredictor:
                         raise
 
         except Exception as e:
-            logger.error(f"Error in analyze: {str(e)}", exc_info=True)
+            print(f"Error in analyze: {str(e)}", exc_info=True)
             return "Error in generating the forecast. The API request limit may have been exceeded.."
 
     def predict_plt(self, ticker, user_id):
         predictions = self.predict_future(ticker)
-        history = yf.download(ticker, period="6mo")["Open"]
+        history = yf.download(ticker, period="1y")["Open"]
 
-        history_close = yf.download(ticker, period="6mo")["Close"]
+        history_close = yf.download(ticker, period="1y")["Close"]
 
         plt.figure(figsize=(14, 7))
         plt.plot(history, label="Historical Open Price")
