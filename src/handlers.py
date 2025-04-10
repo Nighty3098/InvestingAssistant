@@ -13,7 +13,9 @@ from db import (
     add_admin_role,
     add_city_to_db,
     add_stock_to_db,
+    block_user,
     check_user_account,
+    check_user_ban,
     create_connection,
     create_table,
     create_users_table,
@@ -21,18 +23,16 @@ from db import (
     get_id_by_username,
     get_network_tokens,
     get_user_role,
+    get_users_list,
     get_users_stocks,
     is_admin,
     registering_user,
     remove_account,
     remove_admin_role,
     remove_stock_from_db,
+    unblock_user,
     update_stock_quantity,
     update_tokens,
-    get_users_list,
-    check_user_ban,
-    block_user,
-    unblock_user,
 )
 from func import (
     log_resource_usage,
@@ -91,11 +91,11 @@ async def start(client, message):
         connection = create_connection()
         create_users_table(connection)
 
-        if check_user_ban(username) == False:
-            if check_user_account(connection, user_id):
-                photo_path = "resources/header.png"
-                logger.info(f"New User: {user_id} - {username}")
+        if check_user_account(connection, user_id):
+            photo_path = "resources/header.png"
+            logger.info(f"New User: {user_id} - {username}")
 
+            if check_user_ban(username) == False:
                 if is_admin(user_id):
                     await app.send_photo(
                         photo=photo_path,
@@ -113,28 +113,30 @@ async def start(client, message):
                         parse_mode=enums.ParseMode.MARKDOWN,
                     )
 
-                # start_parsing_thread(user_id)
-                # start_price_monitor_thread(user_id)
+                start_parsing_thread(user_id)
+                start_price_monitor_thread(user_id)
             else:
                 photo_path = "resources/header.png"
-                logger.info(f"New User: {user_id} - {username} on registering")
+                logger.info(f"New User: {user_id} - {username} - banned")
                 await app.send_photo(
                     photo=photo_path,
                     chat_id=user_id,
-                    caption=not_register_message,
-                    reply_markup=register_user_kb,
+                    caption=f"{username}, you are banned. Please contact the administrator for details",
+                    reply_markup=None,
                     parse_mode=enums.ParseMode.MARKDOWN,
                 )
+
         else:
             photo_path = "resources/header.png"
-            logger.info(f"New User: {user_id} - {username} - banned")
+            logger.info(f"New User: {user_id} - {username} on registering")
             await app.send_photo(
                 photo=photo_path,
                 chat_id=user_id,
-                caption=f"{username}, you are banned. Please contact the administrator for details",
-                reply_markup=None,
+                caption=not_register_message,
+                reply_markup=register_user_kb,
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
+
     except Exception as e:
         logger.error(f"Error: {e}")
 
@@ -209,17 +211,17 @@ async def answer(client, callback_query):
 
         if data == "admin_panel":
             photo_path = "resources/header.png"
-
             message = f"Welcome to admin panel\n"
 
             if is_admin(user_id):
+                logger.debug(f"User: {user_id} - {username} accessed admin panel")
                 await callback_query.message.edit_text(
                     message,
                     reply_markup=admin_panel,
                     parse_mode=enums.ParseMode.MARKDOWN,
                 )
             else:
-                pass
+                logger.warning(f"User: {user_id} - admin panel - blocked")
 
         if data == "users_menu":
             users_list = get_users_list(connection=create_connection())
