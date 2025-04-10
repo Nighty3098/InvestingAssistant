@@ -430,10 +430,17 @@ async def answer(client, callback_query):
             user_states[user_id] = "news"
             global news_sent_message
 
-            news_sent_message = await callback_query.message.edit_text(
-                get_news_period,
-                parse_mode=enums.ParseMode.MARKDOWN,
-            )
+            if is_admin(user_id):
+                news_sent_message = await callback_query.message.edit_text(
+                    get_news_period,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                    reply_markup=back_kb,
+                )
+            else:
+                news_sent_message = await callback_query.message.edit_text(
+                    "Feature in development",
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                )
 
         if data == "set_city":
             user_states[user_id] = "set_city"
