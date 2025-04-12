@@ -12,14 +12,14 @@ add_asset_request = """
 **Enter the code of your shares or their name, and specify their number separated by commas. To split shares, use ` | `.
 **\n
 __Example:__
-`QIWI, 25400 | GTRK, 30000 | INDEX, 100000 | SFIN, 13000`
+`TSLA, 100 | NVDA, 100 | AAPL, 1000 | NFLX, 100`
 """
 
 remove_asset_request = """
 **Enter the code of your shares or their name to remove, and specify their number separated by commas. To split shares, use ` | `.
 **\n
 __Example:__
-`QIWI, 25400 | GTRK, 30000 | INDEX, 100000 | SFIN, 13000`
+`TSLA, 100 | NVDA, 100 | AAPL, 1000 | NFLX, 100`
 """
 
 not_register_message = """

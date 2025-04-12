@@ -9,31 +9,7 @@ from pyrogram import Client, enums, filters
 from pyrogram.types import InputMediaPhoto, Message
 
 from config import API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file, logger
-from db import (
-    add_admin_role,
-    add_city_to_db,
-    add_stock_to_db,
-    block_user,
-    check_user_account,
-    check_user_ban,
-    create_connection,
-    create_table,
-    create_users_table,
-    get_all_admins,
-    get_id_by_username,
-    get_network_tokens,
-    get_user_role,
-    get_users_list,
-    get_users_stocks,
-    is_admin,
-    registering_user,
-    remove_account,
-    remove_admin_role,
-    remove_stock_from_db,
-    unblock_user,
-    update_stock_quantity,
-    update_tokens,
-)
+from db import db
 from func import (
     log_resource_usage,
     notify_user,
@@ -56,12 +32,7 @@ from kb_builder.user_panel import (
     stocks_management_kb,
 )
 from model.price_core import StockPredictor
-from parsing import (
-    check_new_articles,
-    parse_investing_news,
-    run_check_new_articles,
-    start_parsing,
-)
+from parsing import NewsParser, run_check_new_articles
 from resources.messages import (
     ASSETS_MESSAGE,
     WELCOME_MESSAGE,
@@ -77,6 +48,7 @@ from resources.messages import (
     remove_asset_request,
     select_lang_dialog,
 )
+from create_report import ReportTable
 
 user_states = {}
 
@@ -88,15 +60,17 @@ async def start(client, message):
         user_id = message.from_user.id
         username = message.from_user.username or "unknown"
 
-        connection = create_connection()
-        create_users_table(connection)
+        db.get_connection()
+        db._create_users_table()
 
-        if check_user_account(connection, user_id):
+        news_parser = NewsParser()
+
+        if db.check_user_account(user_id):
             photo_path = "resources/header.png"
             logger.info(f"New User: {user_id} - {username}")
 
-            if check_user_ban(username) == False:
-                if is_admin(user_id):
+            if not db.check_user_ban(username):
+                if db.is_admin(user_id):
                     await app.send_photo(
                         photo=photo_path,
                         chat_id=user_id,
@@ -143,7 +117,7 @@ async def start(client, message):
 
 @app.on_message(filters.command("send_tokens"))
 async def send_tokens_command(client: Client, message: Message):
-    if is_admin(message.from_user.id):
+    if db.is_admin(message.from_user.id):
         try:
             args = message.command[1:]
             if len(args) != 2:
@@ -153,8 +127,8 @@ async def send_tokens_command(client: Client, message: Message):
             username = args[0]
             tokens = args[1]
 
-            id = get_id_by_username(create_connection(), username)
-            update_tokens(create_connection(), id, tokens)
+            id = db.get_id_by_username(username)
+            db.update_tokens(id, tokens)
 
             await app.send_message(
                 chat_id=id, text=f"You have received {tokens} tokens"
@@ -172,8 +146,8 @@ async def answer(client, callback_query):
         data = callback_query.data
 
         if data == "add_admin":
-            if is_admin(user_id):
-                admin_usernames = get_all_admins()
+            if db.is_admin(user_id):
+                admin_usernames = db.get_all_admins()
                 if admin_usernames:
                     admins_list = "\n @".join(admin_usernames)
                     message = f"\nAdmins: {admins_list}\nEnter username to add:"
@@ -191,8 +165,8 @@ async def answer(client, callback_query):
                 pass
 
         if data == "rm_admin":
-            if is_admin(user_id):
-                admin_usernames = get_all_admins()
+            if db.is_admin(user_id):
+                admin_usernames = db.get_all_admins()
                 if admin_usernames:
                     admins_list = "\n @".join(admin_usernames)
                     message = f"\nAdmins: {admins_list}\nEnter username to remove:"
@@ -213,7 +187,7 @@ async def answer(client, callback_query):
             photo_path = "resources/header.png"
             message = f"Welcome to admin panel\n"
 
-            if is_admin(user_id):
+            if db.is_admin(user_id):
                 logger.debug(f"User: {user_id} - {username} accessed admin panel")
                 await callback_query.message.edit_text(
                     message,
@@ -224,19 +198,19 @@ async def answer(client, callback_query):
                 logger.warning(f"User: {user_id} - admin panel - blocked")
 
         if data == "users_menu":
-            users_list = get_users_list(connection=create_connection())
+            users_list = db.get_users_list()
             if users_list:
                 message = f"Username - id - tokens - role - status\n"
                 for user in users_list:
                     user_status = ""
-                    _ = check_user_ban(user[1])
+                    _ = db.check_user_ban(user[1])
                     if _ == True:
                         user_status = "Banned"
                     else:
                         user_status = "Active"
                     message += f"\n@{user[1]} - {user[0]} - {user[2]} - {user[3]} - {user_status}"
 
-            if is_admin(user_id):
+            if db.is_admin(user_id):
                 try:
                     await callback_query.message.edit_text(
                         message,
@@ -273,7 +247,7 @@ async def answer(client, callback_query):
 
             logger.info(f"get_price: {user_id} - {username}")
 
-            tokens = get_network_tokens(create_connection(), user_id)
+            tokens = db.get_network_tokens(user_id)
 
             logger.debug(f"User ID: {user_id}, user: {username}, tokens: {tokens}")
 
@@ -303,7 +277,7 @@ async def answer(client, callback_query):
 
             await app.delete_messages(chat_id=user_id, message_ids=sent_messages.id)
 
-            if is_admin(user_id):
+            if db.is_admin(user_id):
                 await app.send_photo(
                     photo=photo_path,
                     chat_id=user_id,
@@ -356,7 +330,7 @@ async def answer(client, callback_query):
         if data == "remove_account":
             logger.info(f"remove_account: {user_id} - {username}")
 
-            remove_account(create_connection(), user_id)
+            db.remove_account(user_id)
 
         if data == "my_stocks":
             logger.info(f"my_stocks: {user_id} - {username}")
@@ -367,8 +341,7 @@ async def answer(client, callback_query):
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
 
-            connection = create_connection()
-            users_stocks = get_users_stocks(connection, user_id)
+            users_stocks = db.get_users_stocks(user_id)
             message = ASSETS_MESSAGE + "\n\n__" + users_stocks + "__"
 
             await callback_query.message.edit_text(
@@ -380,7 +353,7 @@ async def answer(client, callback_query):
         if data == "add_stocks":
             logger.info(f"add_stocks: {user_id} - {username}")
             user_states[user_id] = "adding"
-            stocks_message = get_users_stocks(create_connection(), user_id)
+            stocks_message = db.get_users_stocks(user_id)
             message = add_asset_request + stocks_message
             await callback_query.message.edit_text(
                 message,
@@ -391,7 +364,7 @@ async def answer(client, callback_query):
         if data == "remove_stocks":
             logger.info(f"remove_stocks: {user_id} - {username}")
             user_states[user_id] = "removing"
-            stocks_message = get_users_stocks(create_connection(), user_id)
+            stocks_message = db.get_users_stocks(user_id)
             message = remove_asset_request + stocks_message
             await callback_query.message.edit_text(
                 message,
@@ -404,8 +377,7 @@ async def answer(client, callback_query):
 
             user_states[user_id] = "none"
 
-            connection = create_connection()
-            users_stocks = get_users_stocks(connection, user_id)
+            users_stocks = db.get_users_stocks(user_id)
             message = ASSETS_MESSAGE + "\n\n__" + users_stocks + "__"
 
             await callback_query.message.edit_text(
@@ -430,7 +402,7 @@ async def answer(client, callback_query):
             user_states[user_id] = "news"
             global news_sent_message
 
-            if is_admin(user_id):
+            if db.is_admin(user_id):
                 news_sent_message = await callback_query.message.edit_text(
                     get_news_period,
                     parse_mode=enums.ParseMode.MARKDOWN,
@@ -465,19 +437,19 @@ async def handle_input(client, message):
     photo_path = "resources/header.png"
 
     if state == "unblock_user":
-        unblock_user(username, message)
+        db.unblock_user(username, message)
         return
 
     if state == "ban_user":
-        block_user(username, message)
+        db.block_user(username, message)
         return
 
     if state == "add_admin":
         try:
             data = message.text
-            add_admin_role(data)
+            db.add_admin_role(data)
 
-            admin_usernames = get_all_admins()
+            admin_usernames = db.get_all_admins()
             admins_list = "\n".join(admin_usernames)
             msg = f"\nAdmins: {admins_list}:"
 
@@ -495,9 +467,9 @@ async def handle_input(client, message):
     if state == "rm_admin":
         try:
             data = message.text
-            remove_admin_role(data)
+            db.remove_admin_role(data)
 
-            admin_usernames = get_all_admins()
+            admin_usernames = db.get_all_admins()
             admins_list = "\n".join(admin_usernames)
             msg = f"\nAdmins: {admins_list}"
 
@@ -536,7 +508,7 @@ async def handle_input(client, message):
 
         data = message.text
 
-        results = start_parsing(data, user_id)
+        results = news_parser.start_parsing(data, user_id)
         for result in results:
             await notify_user(user_id, result)
 
@@ -553,7 +525,7 @@ async def handle_input(client, message):
 
         data = message.text
 
-        add_city_to_db(user_id, data)
+        db.add_city_to_db(user_id, data)
 
         photo_path = "resources/header.png"
         await app.send_photo(
@@ -565,43 +537,49 @@ async def handle_input(client, message):
         )
 
     elif state == "price":
-        from db import get_more_info, get_stock_info
-        from func import create_plt_price
-
         await app.delete_messages(chat_id=user_id, message_ids=price_sent_message.id)
-
         wait_message = await app.send_message(user_id, "⏳ Please wait...")
-
         data = message.text
 
-        stock_name, stock_price = get_stock_info(data)
-        info = get_more_info(data)
+        stock_name, stock_price = db.get_stock_info(data)
+        info = db.get_more_info(data)
 
         predictor = StockPredictor()
         advice_message = predictor.analyze(data)
 
-        predict_path = predictor.predict_plt(data, user_id)
-        # image_path = create_plt_price(data, user_id)
+        report_table = ReportTable(data)
+        report_data = report_table.download_data(data)
+        report_path = report_table.save_report(report_data)
 
-        update_tokens(create_connection(), user_id, "-1")
-        updated_tokens = get_network_tokens(create_connection(), user_id)
+        predict_path = predictor.predict_plt(data, user_id)
+
+        db.update_tokens(user_id, "-1")
+        updated_tokens = db.get_network_tokens(user_id)
 
         await app.delete_messages(chat_id=user_id, message_ids=wait_message.id)
+        await app.send_document(chat_id=user_id, document=report_path, caption="Ticker report")
         await app.send_photo(
             chat_id=user_id,
             photo=predict_path,
             caption=(
                 f"**{stock_name}**:\n\n"
-                f"Current price: {stock_price}$\n\n"
+                f"**Location: {info['country']}**\n"
+                f"**Sector: {info['sector']}**\n"
                 f"────────────────────────────\n"
+                f"Current price: {stock_price}$\n\n"
                 f"Market cap: {info['market_cap']}\n"
                 f"Dividend yield: {info['dividend_yield']}\n"
                 f"P/E ratio: {info['pe_ratio']}\n"
-                f"EPS: {info['eps']}\n"
-                # f"Target mean price: {info['target_mean_price']}$\n"
-                # f"Target high price: {info['target_high_price']}$\n"
-                # f"Target low price: {info['target_low_price']}$\n"
-                # f"────────────────────────────\n"
+                f"Quick Ratio: {info['quick_ratio']}\n"
+                f"Beta: {info['beta']}\n"
+                f"Shares Outstanding: {info['shares_outstanding']}\n"
+                f"EPS (Earnings Per Share): {info['eps']}\n"
+                f"────────────────────────────\n"
+                f"Audit Risk: {info['audit_risk']}\n"
+                f"Board Risk: {info['board_risk']}\n"
+                f"Compensation Risk: {info['compensation_risk']}\n"
+                f"ShareHolderRights Risk {info['shareHolderRights_risk']}\n"
+                f"Overall Risk {info['overall_risk']}\n"
                 f"{advice_message}\n"
                 f"────────────────────────────\n"
                 f"You have {updated_tokens} tokens left"

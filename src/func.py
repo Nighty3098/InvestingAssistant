@@ -13,13 +13,11 @@ import yfinance as yf
 from pyrogram import enums
 
 from config import app, logger
-from db import (add_stock_to_db, check_user_account, create_connection,
-                get_city_from_db, get_users_stocks, registering_user,
-                remove_stock_from_db, update_stock_quantity, is_admin)
+from db import db
+from kb_builder.admin_panel import admin_kb
 from kb_builder.user_panel import main_kb
 from plt_gen import create_plt_price
 from resources.messages import WELCOME_MESSAGE, register_message
-from kb_builder.admin_panel import admin_kb
 
 user_price_thread = {}
 user_parse_thread = {}
@@ -79,18 +77,16 @@ def get_time_difference(document_date, timezone):
 
 
 async def check_stock_prices(user_id):
-    from db import get_stock_info, get_stocks
-
     retry_delay = 60
 
     while True:
         try:
-            stock_prices = get_stocks(create_connection(), user_id)
+            stock_prices = db.get_stocks(user_id)
             logger.debug(f"Old stock prices: {stock_prices}")
 
             for stock_name in stock_prices.keys():
                 try:
-                    _, current_price = get_stock_info(stock_name)
+                    _, current_price = db.get_stock_info(stock_name)
 
                     if current_price == "Error" or isinstance(current_price, str):
                         logger.error(f"Error getting stock price for: {stock_name} {current_price}")
@@ -100,29 +96,21 @@ async def check_stock_prices(user_id):
                     new_price = float(current_price)
 
                     if old_price == 0:
-                        continue  # Пропускаем сравнение, если не было предыдущей цены
+                        continue
 
                     price_diff = abs((new_price - old_price) / old_price) * 100
 
                     if price_diff > 3:
-                        if new_price < old_price:
-                            label = "🔴 "
-                        elif new_price > old_price:
-                            label = "🟢 "
-                        else:
-                            label = "🟡 "
-                        logger.info(
-                            f"New message for {user_id}: Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}"
-                        )
+                        label = "🔴 " if new_price < old_price else "🟢 " if new_price > old_price else "🟡 "
+                        
+                        logger.info(f"New message for {user_id}: Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}")
                         await app.send_message(
                             user_id,
                             f"{label} Update stock price: {stock_name}\nOld: {stock_prices[stock_name]}\nNew: {current_price}",
                             parse_mode=enums.ParseMode.MARKDOWN,
                         )
                         stock_prices[stock_name] = str(current_price)
-                        logger.info(
-                            f"Updated old stock price from {stock_prices[stock_name]} to {current_price}"
-                        )
+                        
                 except Exception as e:
                     logger.error(f"Error processing stock {stock_name}: {e}")
                     continue
@@ -266,7 +254,7 @@ def is_within_period(date_string, period_string, user_id):
         input_date = datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")
         current_time = datetime.now()
 
-        timezone = get_city_from_db(user_id)
+        timezone = db.get_city_from_db(user_id)
 
         if isinstance(timezone, tuple):
             timezone = timezone[0]
@@ -311,17 +299,17 @@ def log_resource_usage():
 
 async def register_user(user_id, username, callback_query):
     try:
-        connection = create_connection()
+        connection = db.get_connection()
 
-        registering_user(connection, user_id, username)
+        db.registering_user(connection, user_id, username)
 
         await callback_query.message.edit_text(
             register_message,
             parse_mode=enums.ParseMode.MARKDOWN,
         )
         time.sleep(2)
-        if check_user_account(connection, user_id):
-            if is_admin(user_id):
+        if db.check_user_account(connection, user_id):
+            if db.is_admin(user_id):
                 await callback_query.message.edit_text(
                     WELCOME_MESSAGE,
                     reply_markup=admin_kb,
@@ -364,7 +352,7 @@ async def process_adding_stocks(client, message, user_id, username):
 
         try:
             quantity = int(name_quantity[1].strip())
-            if add_stock_to_db(user_id, username, stock_name, quantity):
+            if db.add_stock_to_db(user_id, username, stock_name, quantity):
                 await client.send_message(
                     message.chat.id,
                     f"The asset '{stock_name}' has been successfully added or updated.",
@@ -390,7 +378,7 @@ async def process_removing_stocks(client, message, user_id):
         if len(name_quantity) == 2:
             try:
                 quantity = int(name_quantity[1].strip())
-                if update_stock_quantity(user_id, stock_name, quantity):
+                if db.update_stock_quantity(user_id, stock_name, quantity):
                     await client.send_message(
                         message.chat.id,
                         f"The asset '{stock_name}' has been successfully reduced.",
@@ -405,7 +393,7 @@ async def process_removing_stocks(client, message, user_id):
                 )
                 return
         else:
-            if remove_stock_from_db(user_id, stock_name):
+            if db.remove_stock_from_db(user_id, stock_name):
                 await client.send_message(
                     message.chat.id,
                     f"The asset '{stock_name}' has been successfully deleted.",

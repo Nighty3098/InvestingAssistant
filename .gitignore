@@ -14,3 +14,4 @@ src/stock.png
 .venv/
 src/client_data/*.png
 .qodo
+/src/client_data
