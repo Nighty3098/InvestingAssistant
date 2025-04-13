@@ -140,27 +140,25 @@ class StockPredictor:
                     price_change = (avg_prediction - current_price) / current_price
 
                     message = (
-                        "────────────────────────────\n"
-                        f"{self.forecast_days}-daily forecast for {ticker}\n"
-                        f"Current price: {current_price:.2f}$\n"
-                        f"Average projected price: {avg_prediction:.2f}$\n"
-                        f"Expected change: {price_change*100:.2f}%\n"
+                        f"📈 {self.forecast_days}-day forecast for {ticker}\n"
+                        f"────────────────────────────\n"
+                        f"💰 Current price: {current_price:.2f}$\n"
+                        f"🔮 Average projected price: {avg_prediction:.2f}$\n"
+                        f"📊 Expected change: {price_change*100:+.2f}% {'📉' if price_change < 0 else '📈'}\n"
                     )
 
-                    if price_change > threshold:
-                        message += "Recommendation: ACTIVELY BUY"
-                    elif price_change > threshold / 2:
-                        message += "Recommendation: BUY"
-                    elif price_change < -threshold:
-                        message += "Recommendation: ACTIVELY SELL"
-                    elif price_change < -threshold / 2:
-                        message += "Recommendation: SELL"
-                    else:
-                        message += "Recommendation: KEEP"
+                    # if price_change > threshold:
+                    #     message += "Recommendation: ACTIVELY BUY"
+                    # elif price_change > threshold / 2:
+                    #     message += "Recommendation: BUY"
+                    # elif price_change < -threshold:
+                    #     message += "Recommendation: ACTIVELY SELL"
+                    # elif price_change < -threshold / 2:
+                    #     message += "Recommendation: SELL"
+                    # else:
+                    #     message += "Recommendation: KEEP"
 
-                    print(message)
-
-                    return message
+                    return message, price_change
 
                 except Exception as e:
                     if attempt < max_retries - 1:

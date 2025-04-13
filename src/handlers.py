@@ -49,6 +49,7 @@ from resources.messages import (
     select_lang_dialog,
 )
 from create_report import ReportTable
+from create_report import AdvicePredictor
 
 user_states = {}
 
@@ -62,8 +63,6 @@ async def start(client, message):
 
         db.get_connection()
         db._create_users_table()
-
-        news_parser = NewsParser()
 
         if db.check_user_account(user_id):
             photo_path = "resources/header.png"
@@ -508,6 +507,7 @@ async def handle_input(client, message):
 
         data = message.text
 
+        news_parser = NewsParser()
         results = news_parser.start_parsing(data, user_id)
         for result in results:
             await notify_user(user_id, result)
@@ -538,14 +538,17 @@ async def handle_input(client, message):
 
     elif state == "price":
         await app.delete_messages(chat_id=user_id, message_ids=price_sent_message.id)
-        wait_message = await app.send_message(user_id, "⏳ Please wait...")
+        wait_message = await app.send_message(user_id, "⏳ Thinking...")
         data = message.text
 
         stock_name, stock_price = db.get_stock_info(data)
         info = db.get_more_info(data)
 
         predictor = StockPredictor()
-        advice_message = predictor.analyze(data)
+        predict_message, price_change = predictor.analyze(data)
+
+        advice_predictor = AdvicePredictor()
+        advice_message = advice_predictor.analyze(data, price_change)
 
         report_table = ReportTable(data)
         report_data = report_table.download_data(data)
@@ -562,26 +565,18 @@ async def handle_input(client, message):
             chat_id=user_id,
             photo=predict_path,
             caption=(
-                f"**{stock_name}**:\n\n"
-                f"**Location: {info['country']}**\n"
-                f"**Sector: {info['sector']}**\n"
-                f"────────────────────────────\n"
-                f"Current price: {stock_price}$\n\n"
-                f"Market cap: {info['market_cap']}\n"
-                f"Dividend yield: {info['dividend_yield']}\n"
-                f"P/E ratio: {info['pe_ratio']}\n"
-                f"Quick Ratio: {info['quick_ratio']}\n"
-                f"Beta: {info['beta']}\n"
-                f"Shares Outstanding: {info['shares_outstanding']}\n"
-                f"EPS (Earnings Per Share): {info['eps']}\n"
-                f"────────────────────────────\n"
-                f"Audit Risk: {info['audit_risk']}\n"
-                f"Board Risk: {info['board_risk']}\n"
-                f"Compensation Risk: {info['compensation_risk']}\n"
-                f"ShareHolderRights Risk {info['shareHolderRights_risk']}\n"
-                f"Overall Risk {info['overall_risk']}\n"
-                f"{advice_message}\n"
-                f"────────────────────────────\n"
+                f"**{stock_name}** 🏢\n\n"
+                f"**📍 Location:** {info['country']} \n"
+                f"**🏭 Sector:** {info['sector']}\n\n"
+                f"📊 **Market cap:** {info['market_cap']}\n"
+                f"💰 **Dividend yield:** {info['dividend_yield']}\n"
+                f"🧮 **P/E ratio:** {info['pe_ratio']}\n"
+                f"⚖️ **Quick Ratio:** {info['quick_ratio']}\n"
+                f"📈 **Beta:** {info['beta']}\n"
+                f"📦 **Shares Outstanding:** {info['shares_outstanding']}\n"
+                f"📉 **EPS (Earnings Per Share):** {info['eps']}\n\n"
+                f"{advice_message}\n\n"
+                f"{predict_message}\n\n\n"
                 f"You have {updated_tokens} tokens left"
             ),
             reply_markup=back_kb,
