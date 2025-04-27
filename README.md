@@ -29,7 +29,7 @@ curl -sSL https://install.python-poetry.org | python3 -
 
 
 ```
-git clone https://github.com/Nighty3098/InvestingAssistant
+git clone https://github.com/Nighty3098/InvestingAssistant --recurse-submodules
 cd InvestingAssistant
 poetry shell
 poetry install
