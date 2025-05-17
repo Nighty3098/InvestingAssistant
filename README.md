@@ -68,35 +68,11 @@ Additionally, you need:
 ## 📂 Project Structure
 
 ```
-<<<<<<< Updated upstream
 git clone https://github.com/Nighty3098/InvestingAssistant --recurse-submodules
 cd InvestingAssistant
 poetry shell
 poetry install
 cd src
-=======
-StockBot/
-├── client_data/                    # Generated reports and plots
-├── IPSA_MODEL/price/              # Model and scaler files
-│   ├── best_model.keras           # Pre-trained stock prediction model
-│   └── stock_scaler.save          # MinMax scaler for data normalization
-├── resources/                     # Static assets
-│   ├── header.png                 # Bot welcome image
-├── config.py                      # Configuration (API keys, bot token)
-├── db.py                          # Database management
-├── func.py                        # Utility functions
-├── kb_builder/                    # Keyboard builders for UI
-│   ├── admin_panel.py             # Admin keyboard and panel
-│   ├── user_panel.py              # User keyboard and panel
-├── model/                         # Prediction models
-│   ├── influence_core.py          # News sentiment analysis (stub)
-│   ├── price_core.py              # Stock price prediction
-├── parsing.py                     # News parsing logic
-├── create_report.py               # Report generation
-├── resources/messages.py          # Predefined messages
-├── main.py                        # Main bot script
-└── logs/                          # Log files (generated)
->>>>>>> Stashed changes
 ```
 
 ---
