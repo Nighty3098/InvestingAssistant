@@ -15,3 +15,12 @@ src/stock.png
 src/client_data/*.png
 .qodo
 /src/client_data
+/bot/src/client_data
+bot/src/.env
+bot/src/IPSA.session
+bot/src/IPSA_MODEL/price/best_model.keras
+bot/src/IPSA_MODEL/news/training_history.pickle
+bot/src/IPSA_MODEL/price/stock_model.keras
+bot/src/IPSA_MODEL/price/stock_scaler.save
+bot/src/IPSA_MODEL/news/sentiment_model.keras
+bot/src/IPSA_MODEL/news/best_sentiment_model.keras
