@@ -472,7 +472,7 @@ class DatabaseManager:
             logger.error(f"Error fetching user role for user_id {user_id}: {e}")
             return ""
 
-    def get_users_list(self, connection):
+    def get_users_list(self):
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
@@ -544,7 +544,7 @@ class DatabaseManager:
         stock_prices = {}
         for (stock_name,) in rows:
             try:
-                name, price = self.get_stock_info(stock_name)
+                _, price = self.get_stock_info(stock_name)
                 stock_prices[stock_name] = float(price) if price != "Error" and not isinstance(price, str) else 0
                 logger.debug(f"{user_id}: {stock_name} - {price}")
             except Exception as e:
@@ -644,7 +644,7 @@ class DatabaseManager:
 
             return response_message
 
-    def add_stock_to_db(self, user_id, username, stock_name, quantity):
+    def add_stock_to_db(self, user_id, stock_name, quantity):
         """Добавление акции в БД"""
         with self.get_connection() as conn:
             try:

@@ -89,10 +89,16 @@ async def check_stock_prices(user_id):
                     _, current_price = db.get_stock_info(stock_name)
 
                     if current_price == "Error" or isinstance(current_price, str):
-                        logger.error(f"Error getting stock price for: {stock_name} {current_price}")
+                        logger.error(
+                            f"Error getting stock price for: {stock_name} {current_price}"
+                        )
                         continue
 
-                    old_price = float(stock_prices[stock_name]) if stock_prices[stock_name] != 0 else 0
+                    old_price = (
+                        float(stock_prices[stock_name])
+                        if stock_prices[stock_name] != 0
+                        else 0
+                    )
                     new_price = float(current_price)
 
                     if old_price == 0:
@@ -101,16 +107,22 @@ async def check_stock_prices(user_id):
                     price_diff = abs((new_price - old_price) / old_price) * 100
 
                     if price_diff > 3:
-                        label = "🔴 " if new_price < old_price else "🟢 " if new_price > old_price else "🟡 "
-                        
-                        logger.info(f"New message for {user_id}: Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}")
+                        label = (
+                            "🔴 "
+                            if new_price < old_price
+                            else "🟢 " if new_price > old_price else "🟡 "
+                        )
+
+                        logger.info(
+                            f"New message for {user_id}: Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}"
+                        )
                         await app.send_message(
                             user_id,
                             f"{label} Update stock price: {stock_name}\nOld: {stock_prices[stock_name]}\nNew: {current_price}",
                             parse_mode=enums.ParseMode.MARKDOWN,
                         )
                         stock_prices[stock_name] = str(current_price)
-                        
+
                 except Exception as e:
                     logger.error(f"Error processing stock {stock_name}: {e}")
                     continue
@@ -129,7 +141,7 @@ def start_monitoring_thread():
         monitor_thread = threading.Thread(target=log_resource_usage)
         monitor_thread.daemon = True
         monitor_thread.start()
-        logger.info(f"Started thread for monitoring")
+        logger.info("Started thread for monitoring")
     except Exception as e:
         logger.error(f"Error in start_monitoring_thread: {e}")
 
@@ -168,8 +180,6 @@ def start_price_monitor_thread(user_id: str):
             )
     except Exception as e:
         logger.error(f"Error in start_parsing_thread: {e}")
-    finally:
-        pass
 
 
 def start_parsing_thread(user_id: str):
@@ -331,7 +341,7 @@ async def register_user(user_id, username, callback_query):
                 "**Error while registering user. Try again later**",
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
-            logger.error(f"Error while registering user")
+            logger.error("Error while registering user")
     except Exception as e:
         logger.error(f"Error '{e}' while registering user")
 
@@ -352,7 +362,7 @@ async def process_adding_stocks(client, message, user_id, username):
 
         try:
             quantity = int(name_quantity[1].strip())
-            if db.add_stock_to_db(user_id, username, stock_name, quantity):
+            if db.add_stock_to_db(user_id, stock_name, quantity):
                 await client.send_message(
                     message.chat.id,
                     f"The asset '{stock_name}' has been successfully added or updated.",
