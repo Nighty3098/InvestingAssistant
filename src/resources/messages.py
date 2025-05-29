@@ -1,4 +1,4 @@
-WELCOME_MESSAGE = f"""
+WELCOME_MESSAGE = """
 🫠 **Hello, I'm IPSA - your investment assistant.
 
 I will keep you up to date with the latest news about your stocks and help you forecast prices**.
@@ -66,3 +66,4 @@ hvnt_network_tokens = """
 You have run out of free tokens. To continue, subscribe and contact the administrator
 """
 
+BACK_TEXT = """◀️ Back ◀️"""

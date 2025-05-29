@@ -41,7 +41,7 @@ class NewsParser:
             "https://www.investing.com/news/economic-indicators/",
         ]
 
-    def is_stocks_in_news(self, url, user_id, document_title, document_pre_text):
+    def is_stocks_in_news(self, url, user_id):
         headers = {"User-Agent": generate_user_agent()}
         logger.debug(f"Generate user agent: {headers}")
 
@@ -170,9 +170,6 @@ class NewsParser:
                     author_tag = article.find(
                         "span", {"data-test": "news-provider-name"}
                     )
-                    author = (
-                        author_tag.text.strip() if author_tag else "author not found"
-                    )
 
                     about_tag = article.find("p", {"data-test": "article-description"})
                     about = about_tag.text.strip() if about_tag else "about not found"
@@ -185,9 +182,7 @@ class NewsParser:
                         date, period, user_id
                     ):
                         seen_articles.add(unique_identifier)
-                        time_difference = get_time_difference(date, timezone)
-
-                        text = get_news_text(article_url)
+                        text = self.get_news_text(article_url)
 
                         influence = predict_price_influence(text)
 

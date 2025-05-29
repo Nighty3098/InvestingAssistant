@@ -98,7 +98,8 @@ class ProxyManager:
                                     "success_rate": 0,
                                 }
                             )
-                        except:
+                        except Exception as e:
+                            print(e)
                             continue
 
                 elif source["type"] == "plain":
@@ -140,8 +141,9 @@ class ProxyManager:
                     proxy["success_rate"] = min(proxy.get("success_rate", 0) + 10, 100)
                     return True
             return False
-        except:
+        except Exception as e:
             proxy["success_rate"] = max(proxy.get("success_rate", 0) - 5, 0)
+            print(e)
             return False
 
     def update_proxies(self):
@@ -180,9 +182,9 @@ class ProxyManager:
         try:
             with open(self.storage_file, "r") as f:
                 self.proxies = json.load(f)
-                # Валидация загруженных прокси
                 self.proxies = [p for p in self.proxies if self.check_proxy(p)]
-        except:
+        except Exception as e:
+            print(e)
             self.proxies = []
 
     def get_random_proxy(self) -> Dict[str, str]:

@@ -53,6 +53,7 @@ from create_report import AdvicePredictor
 
 user_states = {}
 
+img_path = "resources/header.png"
 
 @app.on_message(filters.command("start"))
 async def start(client, message):
@@ -65,7 +66,7 @@ async def start(client, message):
         db._create_users_table()
 
         if db.check_user_account(user_id):
-            photo_path = "resources/header.png"
+            photo_path = img_path
             logger.info(f"New User: {user_id} - {username}")
 
             if not db.check_user_ban(username):
@@ -89,7 +90,7 @@ async def start(client, message):
                 start_parsing_thread(user_id)
                 start_price_monitor_thread(user_id)
             else:
-                photo_path = "resources/header.png"
+                photo_path = img_path
                 logger.info(f"New User: {user_id} - {username} - banned")
                 await app.send_photo(
                     photo=photo_path,
@@ -100,7 +101,7 @@ async def start(client, message):
                 )
 
         else:
-            photo_path = "resources/header.png"
+            photo_path = img_path
             logger.info(f"New User: {user_id} - {username} on registering")
             await app.send_photo(
                 photo=photo_path,
@@ -126,11 +127,11 @@ async def send_tokens_command(client: Client, message: Message):
             username = args[0]
             tokens = args[1]
 
-            id = db.get_id_by_username(username)
-            db.update_tokens(id, tokens)
+            user_id = db.get_id_by_username(username)
+            db.update_tokens(user_id, tokens)
 
             await app.send_message(
-                chat_id=id, text=f"You have received {tokens} tokens"
+                chat_id=user_id, text=f"You have received {tokens} tokens"
             )
         except Exception as e:
             logger.error(f"Error: {e}")
@@ -161,7 +162,7 @@ async def answer(client, callback_query):
                     reply_markup=admin_panel,
                 )
             else:
-                pass
+                logger.debug(f"{user_id} - not admin")
 
         if data == "rm_admin":
             if db.is_admin(user_id):
@@ -180,11 +181,11 @@ async def answer(client, callback_query):
                     reply_markup=admin_panel,
                 )
             else:
-                pass
+                logger.debug(f"{user_id} - not admin")
 
         if data == "admin_panel":
-            photo_path = "resources/header.png"
-            message = f"Welcome to admin panel\n"
+            photo_path = img_path
+            message = "Welcome to admin panel\n"
 
             if db.is_admin(user_id):
                 logger.debug(f"User: {user_id} - {username} accessed admin panel")
@@ -199,7 +200,7 @@ async def answer(client, callback_query):
         if data == "users_menu":
             users_list = db.get_users_list()
             if users_list:
-                message = f"Username - id - tokens - role - status\n"
+                message = "Username - id - tokens - role - status\n"
                 for user in users_list:
                     user_status = ""
                     _ = db.check_user_ban(user[1])
@@ -270,7 +271,7 @@ async def answer(client, callback_query):
             logger.info(f"to_main: {user_id} - {username}")
 
             user_states[user_id] = "none"
-            photo_path = "resources/header.png"
+            photo_path = img_path
 
             sent_messages = callback_query.message
 
@@ -433,7 +434,7 @@ async def handle_input(client, message):
     username = message.from_user.username or "unknown"
 
     state = user_states.get(user_id)
-    photo_path = "resources/header.png"
+    photo_path = img_path
 
     if state == "unblock_user":
         db.unblock_user(username, message)
@@ -512,7 +513,7 @@ async def handle_input(client, message):
         for result in results:
             await notify_user(user_id, result)
 
-        photo_path = "resources/header.png"
+        photo_path = img_path
         await app.send_photo(
             photo=photo_path,
             chat_id=user_id,
@@ -527,7 +528,7 @@ async def handle_input(client, message):
 
         db.add_city_to_db(user_id, data)
 
-        photo_path = "resources/header.png"
+        photo_path = img_path
         await app.send_photo(
             photo=photo_path,
             chat_id=user_id,
@@ -541,7 +542,7 @@ async def handle_input(client, message):
         wait_message = await app.send_message(user_id, "⏳ Thinking...")
         data = message.text
 
-        stock_name, stock_price = db.get_stock_info(data)
+        stock_name, _ = db.get_stock_info(data)
         info = db.get_more_info(data)
 
         predictor = StockPredictor()

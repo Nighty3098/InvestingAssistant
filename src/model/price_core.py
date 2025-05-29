@@ -46,9 +46,6 @@ class StockPredictor:
             self.scaler = MinMaxScaler()
             print("Initialized new MinMaxScaler")
 
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=self.window_size + self.forecast_days)
-
         max_retries = 3
         retry_delay = 5
 
@@ -123,7 +120,7 @@ class StockPredictor:
                     )
                     raise
 
-    def analyze(self, ticker, threshold=0.05):
+    def analyze(self, ticker):
         try:
             max_retries = 3
             for attempt in range(max_retries):
@@ -146,17 +143,6 @@ class StockPredictor:
                         f"🔮 Average projected price: {avg_prediction:.2f}$\n"
                         f"📊 Expected change: {price_change*100:+.2f}% {'📉' if price_change < 0 else '📈'}\n"
                     )
-
-                    # if price_change > threshold:
-                    #     message += "Recommendation: ACTIVELY BUY"
-                    # elif price_change > threshold / 2:
-                    #     message += "Recommendation: BUY"
-                    # elif price_change < -threshold:
-                    #     message += "Recommendation: ACTIVELY SELL"
-                    # elif price_change < -threshold / 2:
-                    #     message += "Recommendation: SELL"
-                    # else:
-                    #     message += "Recommendation: KEEP"
 
                     return message, price_change
 
