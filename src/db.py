@@ -199,54 +199,72 @@ class DatabaseManager:
             
         return result
 
-    def get_more_info(self, ticker):
-        stock = yf.Ticker(ticker)
-        stock_info = stock.info
+    def _is_crypto(self, ticker):
+        return ticker.upper().endswith("-USD")
 
-        recommendations = stock.recommendations
+    def _fetch_stock_info_and_recommendations(self, ticker):
+        try:
+            stock = yf.Ticker(ticker)
+            stock_info = stock.info
+            recommendations = stock.recommendations
+            return stock_info, recommendations
+        except Exception as e:
+            logger.warning(f"Error fetching info for {ticker}: {e}")
+            return {"longName": ticker}, None
 
-        target_data = stock_info.get("targetMeanPrice", "Target mean price not found")
-        target_high = stock_info.get("targetHighPrice", "Target high price not found")
-        target_low = stock_info.get("targetLowPrice", "Target low price not found")
-        stock_name = stock_info.get("longName", "Name not found")
-        stock_price = stock_info.get("currentPrice", "Price not found")
-        market_cap = stock_info.get("marketCap", "Market cap not found")
-        pe_ratio = stock_info.get("trailingPE", "P/E ratio not found")
-        dividend_yield = stock_info.get("dividendYield", "Dividend yield not found")
-        country = stock_info.get("country", "Country not found")
-        sector = stock_info.get("sector", "Sector not found")
-        eps = stock_info.get("trailingEps", "EPS not found")
-        quick_ratio = stock_info.get("quickRatio", "N/A")
-        beta = stock_info.get("beta", "N/A")
-        shares_outstanding = stock_info.get("sharesOutstanding", "N/A")
-        audit_risk = stock_info.get("auditRisk", "N/A")
-        board_risk = stock_info.get("boardRisk", "N/A")
-        compensation_risk = stock_info.get("compensationRisk", "N/A")
-        shareHolderRights_risk = stock_info.get("shareHolderRightsRisk", "N/A")
-        overall_risk = stock_info.get("overallRisk", "N/A")
-
+    def _format_stock_info_dict(self, stock_info, recommendations):
         return {
-            "sector": sector,
-            "country": country,
-            "eps": eps,
-            "name": stock_name,
-            "price": stock_price,
-            "market_cap": market_cap,
-            "pe_ratio": pe_ratio,
-            "dividend_yield": dividend_yield,
+            "sector": stock_info.get("sector", "Sector not found"),
+            "country": stock_info.get("country", "Country not found"),
+            "eps": stock_info.get("trailingEps", "EPS not found"),
+            "name": stock_info.get("longName", "Name not found"),
+            "price": stock_info.get("currentPrice", "Price not found"),
+            "market_cap": stock_info.get("marketCap", "Market cap not found"),
+            "pe_ratio": stock_info.get("trailingPE", "P/E ratio not found"),
+            "dividend_yield": stock_info.get("dividendYield", "Dividend yield not found"),
             "recommendations": recommendations,
-            "target_mean_price": target_data,
-            "target_high_price": target_high,
-            "target_low_price": target_low,
-            "quick_ratio": quick_ratio,
-            "beta": beta,
-            "shares_outstanding": shares_outstanding,
-            "audit_risk": audit_risk,
-            "board_risk": board_risk,
-            "compensation_risk": compensation_risk,
-            "shareHolderRights_risk": shareHolderRights_risk,
-            "overall_risk": overall_risk,
+            "target_mean_price": stock_info.get("targetMeanPrice", "Target mean price not found"),
+            "target_high_price": stock_info.get("targetHighPrice", "Target high price not found"),
+            "target_low_price": stock_info.get("targetLowPrice", "Target low price not found"),
+            "quick_ratio": stock_info.get("quickRatio", "N/A"),
+            "beta": stock_info.get("beta", "N/A"),
+            "shares_outstanding": stock_info.get("sharesOutstanding", "N/A"),
+            "audit_risk": stock_info.get("auditRisk", "N/A"),
+            "board_risk": stock_info.get("boardRisk", "N/A"),
+            "compensation_risk": stock_info.get("compensationRisk", "N/A"),
+            "shareHolderRights_risk": stock_info.get("shareHolderRightsRisk", "N/A"),
+            "overall_risk": stock_info.get("overallRisk", "N/A"),
         }
+
+    def _crypto_stub_info(self, ticker):
+        return {
+            "sector": "-",
+            "country": "-",
+            "eps": "-",
+            "name": ticker,
+            "price": "-",
+            "market_cap": "-",
+            "pe_ratio": "-",
+            "dividend_yield": "-",
+            "recommendations": "Недоступно для криптовалют",
+            "target_mean_price": "-",
+            "target_high_price": "-",
+            "target_low_price": "-",
+            "quick_ratio": "-",
+            "beta": "-",
+            "shares_outstanding": "-",
+            "audit_risk": "-",
+            "board_risk": "-",
+            "compensation_risk": "-",
+            "shareHolderRights_risk": "-",
+            "overall_risk": "-",
+        }
+
+    def get_more_info(self, ticker):
+        if self._is_crypto(ticker):
+            return self._crypto_stub_info(ticker)
+        stock_info, recommendations = self._fetch_stock_info_and_recommendations(ticker)
+        return self._format_stock_info_dict(stock_info, recommendations)
 
     def get_promo_by_code(self, ticker):
         stock = yf.Ticker(ticker)
