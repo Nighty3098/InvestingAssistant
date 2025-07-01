@@ -19,6 +19,7 @@ from func import (
 )
 from model.influence_core import predict_price_influence
 
+HTML_PARSER = "html.parser"
 
 class NewsParser:
     def __init__(self) -> None:
@@ -41,69 +42,62 @@ class NewsParser:
             "https://www.investing.com/news/economic-indicators/",
         ]
 
+    def _parse_title_and_date(self, soup):
+        title_element = soup.find("h1")
+        if title_element:
+            title = title_element.text.strip()
+            logger.info(f"Title: {title}")
+        else:
+            logger.warning("Title element not found.")
+            title = ""
+        date_element = soup.find("time")
+        if date_element:
+            date = date_element.text.strip()
+            logger.info(f"Date: {date}")
+        else:
+            logger.warning("Date element not found.")
+            date = ""
+        return title, date
+
+    def _get_tickers_and_names(self, stocks_info):
+        tickers = [stock["ticker"] for stock in stocks_info]
+        company_names = [stock["name"] for stock in stocks_info]
+        return tickers, company_names
+
+    def _check_mentions(self, article_text, tickers, company_names):
+        mentions = {ticker: False for ticker in tickers}
+        mentions.update({name: False for name in company_names})
+        for ticker in tickers:
+            if ticker in article_text:
+                mentions[ticker] = True
+        for name in company_names:
+            if name in article_text:
+                mentions[name] = True
+        return mentions
+
     def is_stocks_in_news(self, url, user_id):
         headers = {"User-Agent": generate_user_agent()}
         logger.debug(f"Generate user agent: {headers}")
-
         try:
             stocks_info = db.process_stocks(user_id)
-            tickets_with_company = [
-                (stock["ticker"], stock["name"]) for stock in stocks_info
-            ]
-
+            tickers, company_names = self._get_tickers_and_names(stocks_info)
             response = requests.get(url, headers=headers)
             response.raise_for_status()
-
             html = response.text
-            soup = bs4.BeautifulSoup(html, "html.parser")
-
-            title_element = soup.find("h1")
-            if title_element:
-                title = title_element.text.strip()
-                logger.info(f"Title: {title}")
-            else:
-                logger.warning("Title element not found.")
-                title = ""
-
-            date_element = soup.find("time")
-            if date_element:
-                date = date_element.text.strip()
-                logger.info(f"Date: {date}")
-            else:
-                logger.warning("Date element not found.")
-                date = ""
-
+            soup = bs4.BeautifulSoup(html, HTML_PARSER)
+            title, date = self._parse_title_and_date(soup)
             paragraphs = soup.find_all("p")
             article_text = "\n".join([para.text for para in paragraphs if para.text])
-
-            tickers = [company[0] for company in tickets_with_company]
-            company_names = [company[1] for company in tickets_with_company]
-
-            mentions = {ticker: False for ticker in tickers}
-            mentions.update({name: False for name in company_names})
-
-            for data in tickets_with_company:
-                logger.info(f"Checking stock: {data[0]}, Company: {data[1]}")
-
-            for ticker in tickers:
-                if ticker in article_text:
-                    mentions[ticker] = True
-
-            for name in company_names:
-                if name in article_text:
-                    mentions[name] = True
-
+            mentions = self._check_mentions(article_text, tickers, company_names)
             for entity, is_mentioned in mentions.items():
                 if is_mentioned:
                     logger.info(f"Mention found: {entity}")
                     return True
                 else:
                     logger.info(f"Not found: {entity}")
-
         except Exception as e:
             logger.error(e)
             return False
-
         return False
 
     def get_news_text(self, url):
@@ -115,7 +109,7 @@ class NewsParser:
             response.raise_for_status()
 
             html = response.text
-            soup = bs4.BeautifulSoup(html, "html.parser")
+            soup = bs4.BeautifulSoup(html, HTML_PARSER)
 
             paragraphs = soup.find_all("p")
             article_text = "\n".join([para.text for para in paragraphs if para.text])
@@ -127,73 +121,55 @@ class NewsParser:
             logger.error(e)
             return ""
 
+    def _get_timezone(self, user_id):
+        timezone_info = db.get_city_from_db(user_id)
+        if isinstance(timezone_info, tuple):
+            return timezone_info[0]
+        return timezone_info
+
+    def _parse_article(self, article, seen_articles, period, user_id, timezone):
+        try:
+            title_tag = article.find("a", {"data-test": "article-title-link"})
+            title = title_tag.text.strip() if title_tag else "title not found"
+            date_tag = article.find("time", {"data-test": "article-publish-date"})
+            date = date_tag["datetime"].strip() if date_tag else "date not found"
+            article_url = title_tag["href"].strip() if title_tag else "link not found"
+            about_tag = article.find("p", {"data-test": "article-description"})
+            about = about_tag.text.strip() if about_tag else "about not found"
+            logger.debug(f"Parsing {article_url} - {title}")
+            unique_identifier = (title, article_url)
+            if unique_identifier in seen_articles:
+                return None
+            if not is_within_period(date, period, user_id):
+                return None
+            seen_articles.add(unique_identifier)
+            text = self.get_news_text(article_url)
+            influence = predict_price_influence(text)
+            result_string = f"\n\n🔥 **{title}**\n────────────────────────────\n✨ {influence}\n\n🌊 **{about}**\n────────────────────────────\n__{article_url}__\n\n📆 __{to_local(timezone, date)}__"
+            logger.debug(f"Adding {article_url} - {title} to results")
+            return result_string
+        except Exception as e:
+            logger.error(f"Error processing article: {e}")
+            return None
+
     def parse_investing_news(self, url, period, user_id):
         """Investing.com parser."""
-
         headers = {"User-Agent": generate_user_agent()}
         logger.debug(f"Generate user agent: {headers}")
-
         try:
-            timezone_info = db.get_city_from_db(user_id)
-
-            if isinstance(timezone_info, tuple):
-                timezone = timezone_info[0]
-            else:
-                timezone = timezone_info
-
+            timezone = self._get_timezone(user_id)
             response = requests.get(url, headers=headers)
             response.raise_for_status()
-
             html = response.text
-            soup = bs4.BeautifulSoup(html, "html.parser")
-
+            soup = bs4.BeautifulSoup(html, HTML_PARSER)
             articles = soup.findAll("article", {"data-test": "article-item"})
             results = []
             seen_articles = set()
-
             for article in articles:
-                try:
-                    title_tag = article.find("a", {"data-test": "article-title-link"})
-                    title = title_tag.text.strip() if title_tag else "title not found"
-
-                    date_tag = article.find(
-                        "time", {"data-test": "article-publish-date"}
-                    )
-                    date = (
-                        date_tag["datetime"].strip() if date_tag else "date not found"
-                    )
-
-                    article_url = (
-                        title_tag["href"].strip() if title_tag else "link not found"
-                    )
-
-                    author_tag = article.find(
-                        "span", {"data-test": "news-provider-name"}
-                    )
-
-                    about_tag = article.find("p", {"data-test": "article-description"})
-                    about = about_tag.text.strip() if about_tag else "about not found"
-
-                    logger.debug(f"Parsing {article_url} - {title}")
-
-                    unique_identifier = (title, article_url)
-
-                    if unique_identifier not in seen_articles and is_within_period(
-                        date, period, user_id
-                    ):
-                        seen_articles.add(unique_identifier)
-                        text = self.get_news_text(article_url)
-
-                        influence = predict_price_influence(text)
-
-                        result_string = f"\n\n🔥 **{title}**\n────────────────────────────\n✨ {influence}\n\n🌊 **{about}**\n────────────────────────────\n__{article_url}__\n\n📆 __{to_local(timezone, date)}__"
-                        logger.debug(f"Adding {article_url} - {title} to results")
-                        results.append(result_string)
-
-                except Exception as e:
-                    logger.error(f"Error processing article: {e}")
+                result = self._parse_article(article, seen_articles, period, user_id, timezone)
+                if result:
+                    results.append(result)
             return results
-
         except requests.exceptions.RequestException as e:
             logger.error(f"Error fetching news: {e}")
             return []

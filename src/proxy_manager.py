@@ -47,6 +47,59 @@ class ProxyManager:
         }
         self.load_proxies_from_file()
 
+    def _parse_table_source(self, source, response_text):
+        proxies = []
+        soup = BeautifulSoup(response_text, "html.parser")
+        table = soup.find("table")
+        if not table:
+            return proxies
+        for row in table.find_all("tr")[1:]:
+            cells = row.find_all("td")
+            try:
+                if "free-proxy-list.net" in source["url"]:
+                    if len(cells) < 8:
+                        continue
+                    ip = cells[0].text.strip()
+                    port = cells[1].text.strip()
+                    protocol = (
+                        "https" if "yes" in cells[6].text.lower() else "http"
+                    )
+                elif "hidemy.name" in source["url"]:
+                    if len(cells) < 5:
+                        continue
+                    ip_port = cells[0].text.strip()
+                    ip, port = (
+                        ip_port.split(":") if ":" in ip_port else (None, None)
+                    )
+                    protocol = cells[3].text.strip().lower()
+                    protocol = "https" if "https" in protocol else "http"
+                else:
+                    continue
+                proxies.append(self._make_proxy_dict(ip, port, protocol, source["url"]))
+            except Exception as e:
+                print(e)
+                continue
+        return proxies
+
+    def _parse_plain_source(self, source, response_text):
+        proxies = []
+        for line in response_text.split("\n"):
+            if ":" in line.strip():
+                ip, port = line.strip().split(source.get("split_char", ":"))
+                proxies.append(self._make_proxy_dict(ip, port, "http", source["url"]))
+        return proxies
+
+    def _make_proxy_dict(self, ip, port, protocol, url):
+        return {
+            "ip": ip,
+            "port": port,
+            "protocol": protocol,
+            "url": f"{protocol}://{ip}:{port}",
+            "source": url,
+            "last_checked": None,
+            "success_rate": 0,
+        }
+
     def fetch_proxies(self) -> List[Dict[str, str]]:
         proxies = []
         for source in self.sources:
@@ -54,75 +107,13 @@ class ProxyManager:
                 response = requests.get(source["url"], headers=self.headers, timeout=10)
                 if response.status_code != 200:
                     continue
-
                 if source["type"] == "table":
-                    soup = BeautifulSoup(response.text, "html.parser")
-                    table = soup.find("table")
-                    if not table:
-                        continue
-
-                    for row in table.find_all("tr")[1:]:
-                        cells = row.find_all("td")
-                        try:
-                            if "free-proxy-list.net" in source["url"]:
-                                if len(cells) < 8:
-                                    continue
-                                ip = cells[0].text.strip()
-                                port = cells[1].text.strip()
-                                protocol = (
-                                    "https"
-                                    if "yes" in cells[6].text.lower()
-                                    else "http"
-                                )
-
-                            elif "hidemy.name" in source["url"]:
-                                if len(cells) < 5:
-                                    continue
-                                ip_port = cells[0].text.strip()
-                                ip, port = (
-                                    ip_port.split(":")
-                                    if ":" in ip_port
-                                    else (None, None)
-                                )
-                                protocol = cells[3].text.strip().lower()
-                                protocol = "https" if "https" in protocol else "http"
-
-                            proxies.append(
-                                {
-                                    "ip": ip,
-                                    "port": port,
-                                    "protocol": protocol,
-                                    "url": f"{protocol}://{ip}:{port}",
-                                    "source": source["url"],
-                                    "last_checked": None,
-                                    "success_rate": 0,
-                                }
-                            )
-                        except Exception as e:
-                            print(e)
-                            continue
-
+                    proxies.extend(self._parse_table_source(source, response.text))
                 elif source["type"] == "plain":
-                    for line in response.text.split("\n"):
-                        if ":" in line.strip():
-                            ip, port = line.strip().split(source.get("split_char", ":"))
-                            proxies.append(
-                                {
-                                    "ip": ip,
-                                    "port": port,
-                                    "protocol": "http",
-                                    "url": f"http://{ip}:{port}",
-                                    "source": source["url"],
-                                    "last_checked": None,
-                                    "success_rate": 0,
-                                }
-                            )
-
+                    proxies.extend(self._parse_plain_source(source, response.text))
                 time.sleep(2)
-
             except Exception as e:
                 print(f"Error fetching from {source['url']}: {str(e)}")
-
         return proxies
 
     def check_proxy(self, proxy: Dict[str, str]) -> bool:

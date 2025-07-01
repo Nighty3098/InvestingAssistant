@@ -76,63 +76,57 @@ def get_time_difference(document_date, timezone):
     return ", ".join(time_parts)
 
 
+async def _send_price_update(user_id, stock_name, old_price, new_price):
+    if new_price < old_price:
+        label = "🔴 "
+    elif new_price > old_price:
+        label = "🟢 "
+    else:
+        label = "🟡 "
+    logger.info(
+        f"New message for {user_id}: Stock price {stock_name} from {old_price} to {new_price}"
+    )
+    await app.send_message(
+        user_id,
+        f"{label} Update stock price: {stock_name}\nOld: {old_price}\nNew: {new_price}",
+        parse_mode=enums.ParseMode.MARKDOWN,
+    )
+
+
+async def _process_single_stock(user_id, stock_name, old_price_str):
+    try:
+        _, current_price = db.get_stock_info(stock_name)
+        if current_price == "Error" or isinstance(current_price, str):
+            logger.error(
+                f"Error getting stock price for: {stock_name} {current_price}"
+            )
+            return None
+        old_price = float(old_price_str) if old_price_str != 0 else 0
+        new_price = float(current_price)
+        if old_price == 0:
+            return str(current_price)
+        price_diff = abs((new_price - old_price) / old_price) * 100
+        if price_diff > 3:
+            await _send_price_update(user_id, stock_name, old_price, new_price)
+            return str(current_price)
+        return old_price_str
+    except Exception as e:
+        logger.error(f"Error processing stock {stock_name}: {e}")
+        return old_price_str
+
+
 async def check_stock_prices(user_id):
     retry_delay = 60
-
     while True:
         try:
             stock_prices = db.get_stocks(user_id)
             logger.debug(f"Old stock prices: {stock_prices}")
-
-            for stock_name in stock_prices.keys():
-                try:
-                    _, current_price = db.get_stock_info(stock_name)
-
-                    if current_price == "Error" or isinstance(current_price, str):
-                        logger.error(
-                            f"Error getting stock price for: {stock_name} {current_price}"
-                        )
-                        continue
-
-                    old_price = (
-                        float(stock_prices[stock_name])
-                        if stock_prices[stock_name] != 0
-                        else 0
-                    )
-                    new_price = float(current_price)
-
-                    if old_price == 0:
-                        continue
-
-                    price_diff = abs((new_price - old_price) / old_price) * 100
-
-                    if price_diff > 3:
-                        label = (
-                            "🔴 "
-                            if new_price < old_price
-                            else "🟢 " if new_price > old_price else "🟡 "
-                        )
-
-                        logger.info(
-                            f"New message for {user_id}: Stock price {stock_name} from {stock_prices[stock_name]} to {current_price}"
-                        )
-                        await app.send_message(
-                            user_id,
-                            f"{label} Update stock price: {stock_name}\nOld: {stock_prices[stock_name]}\nNew: {current_price}",
-                            parse_mode=enums.ParseMode.MARKDOWN,
-                        )
-                        stock_prices[stock_name] = str(current_price)
-
-                except Exception as e:
-                    logger.error(f"Error processing stock {stock_name}: {e}")
-                    continue
-
+            for stock_name in list(stock_prices.keys()):
+                stock_prices[stock_name] = await _process_single_stock(user_id, stock_name, stock_prices[stock_name])
             retry_delay = 60
-
         except Exception as e:
             logger.error(f"Error in check_stock_prices: {e}")
             retry_delay = min(retry_delay * 2, 3600)
-
         await asyncio.sleep(retry_delay)
 
 
@@ -346,7 +340,7 @@ async def register_user(user_id, username, callback_query):
         logger.error(f"Error '{e}' while registering user")
 
 
-async def process_adding_stocks(client, message, user_id, username):
+async def process_adding_stocks(client, message, user_id):
     stocks_input = message.text.strip()
     stocks = stocks_input.split("|")
 
@@ -374,41 +368,45 @@ async def process_adding_stocks(client, message, user_id, username):
             return
 
 
+async def _remove_stock_quantity(client, user_id, stock_name, quantity, chat_id):
+    try:
+        quantity = int(quantity)
+        if db.update_stock_quantity(user_id, stock_name, quantity):
+            await client.send_message(
+                chat_id,
+                f"The asset '{stock_name}' has been successfully reduced.",
+            )
+        else:
+            await client.send_message(
+                chat_id, "Failed to update the asset."
+            )
+    except ValueError:
+        await client.send_message(
+            chat_id, "The quantity must be a number."
+        )
+        return
+
+async def _remove_stock_fully(client, user_id, stock_name, chat_id):
+    if db.remove_stock_from_db(user_id, stock_name):
+        await client.send_message(
+            chat_id,
+            f"The asset '{stock_name}' has been successfully deleted.",
+        )
+    else:
+        await client.send_message(
+            chat_id, "Failed to delete the asset."
+        )
+
 async def process_removing_stocks(client, message, user_id):
     stocks_input = message.text.strip()
     stocks = stocks_input.split("|")
-
+    chat_id = message.chat.id
     for stock in stocks:
         name_quantity = stock.strip().split(",")
-        if len(name_quantity) < 1:
+        if not name_quantity or not name_quantity[0].strip():
             continue
-
         stock_name = name_quantity[0].strip()
-
         if len(name_quantity) == 2:
-            try:
-                quantity = int(name_quantity[1].strip())
-                if db.update_stock_quantity(user_id, stock_name, quantity):
-                    await client.send_message(
-                        message.chat.id,
-                        f"The asset '{stock_name}' has been successfully reduced.",
-                    )
-                else:
-                    await client.send_message(
-                        message.chat.id, "Failed to update the asset."
-                    )
-            except ValueError:
-                await client.send_message(
-                    message.chat.id, "The quantity must be a number."
-                )
-                return
+            await _remove_stock_quantity(client, user_id, stock_name, name_quantity[1].strip(), chat_id)
         else:
-            if db.remove_stock_from_db(user_id, stock_name):
-                await client.send_message(
-                    message.chat.id,
-                    f"The asset '{stock_name}' has been successfully deleted.",
-                )
-            else:
-                await client.send_message(
-                    message.chat.id, "Failed to delete the asset."
-                )
+            await _remove_stock_fully(client, user_id, stock_name, chat_id)
