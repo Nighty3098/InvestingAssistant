@@ -6,37 +6,49 @@ import joblib
 import os
 
 class AdvicePredictor:
+    def _calculate_score(self, info):
+        score_rules = [
+            ("trailingPE", lambda v: v and v < 25, 2),
+            ("returnOnEquity", lambda v: v and v > 0.15, 2),
+            ("debtToEquity", lambda v: v and v < 1, 2),
+            ("revenueGrowth", lambda v: v and v > 0.1, 2),
+            ("beta", lambda v: v and 0.5 <= v <= 1.5, 2),
+        ]
+        score = 0
+        for key, cond, points in score_rules:
+            value = info.get(key, 0)
+            if cond(value):
+                score += points
+        return score
+
+    def _calculate_risk_penalty(self, info):
+        risk_rules = [
+            ("auditRisk", 1),
+            ("boardRisk", 1),
+            ("compensationRisk", 1),
+            ("shareHolderRightsRisk", 1),
+            ("overallRisk", 2),
+        ]
+        penalty = 0
+        for key, points in risk_rules:
+            value = info.get(key, 0)
+            if value and value > 5:
+                penalty += points
+        return penalty
+
     def analyze_fundamentals(self, ticker):
         try:
             stock = yf.Ticker(ticker)
             info = stock.info
 
-            pe_ratio = info.get("trailingPE", 0)
-            roe = info.get("returnOnEquity", 0)
-            debt_to_equity = info.get("debtToEquity", 0)
-            revenue_growth = info.get("revenueGrowth", 0)
-            beta = info.get("beta", 0)
-            
             audit_risk = info.get("auditRisk", 0)
             board_risk = info.get("boardRisk", 0)
             compensation_risk = info.get("compensationRisk", 0)
             shareholder_risk = info.get("shareHolderRightsRisk", 0)
             overall_risk = info.get("overallRisk", 0)
 
-            score = 0
-            if pe_ratio and pe_ratio < 25: score += 2
-            if roe and roe > 0.15: score += 2
-            if debt_to_equity and debt_to_equity < 1: score += 2
-            if revenue_growth and revenue_growth > 0.1: score += 2
-            if beta and 0.5 <= beta <= 1.5: score += 2
-
-            risk_penalty = 0
-            if audit_risk and audit_risk > 5: risk_penalty += 1
-            if board_risk and board_risk > 5: risk_penalty += 1
-            if compensation_risk and compensation_risk > 5: risk_penalty += 1
-            if shareholder_risk and shareholder_risk > 5: risk_penalty += 1
-            if overall_risk and overall_risk > 5: risk_penalty += 2
-
+            score = self._calculate_score(info)
+            risk_penalty = self._calculate_risk_penalty(info)
             final_score = max(0, score - risk_penalty)
             return final_score, {
                 'audit_risk': audit_risk,
