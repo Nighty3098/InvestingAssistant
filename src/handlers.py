@@ -259,8 +259,8 @@ async def answer(client, callback_query):
                 )
             else:
                 user_states[user_id] = "price"
-
-                message = f"You have {tokens} free tokens\n\n{check_price}"
+                users_stocks = db.get_users_stocks(user_id)
+                message = f"You have {tokens} free tokens\n\n{users_stocks}{check_price}"
                 price_sent_message = await callback_query.message.edit_text(
                     message,
                     parse_mode=enums.ParseMode.MARKDOWN,

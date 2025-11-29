@@ -190,6 +190,9 @@ class StockPredictor:
         plt.title(f"{ticker} Price Forecast")
         plt.legend()
 
+        client_data_path = Path("client_data")
+        if not client_data_path.exists():
+            client_data_path.mkdir(parents=True, exist_ok=True)
         output_dir = Path("client_data")
         output_dir.mkdir(parents=True, exist_ok=True)
         filename = output_dir / f"forecast_{user_id}_{ticker}.png"

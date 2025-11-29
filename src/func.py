@@ -163,7 +163,12 @@ def start_price_monitor_thread(user_id: str):
                 f"Price thread already running for user ID: {user_id}. Skipped..."
             )
         else:
-            price_thread = threading.Thread(target=create_price_loop, args=(user_id,))
+            price_thread = threading.Thread(
+                target=create_price_loop, 
+                args=(user_id,),
+                daemon=True,
+                name=f"PriceThread-{user_id}"
+            )
             price_thread.daemon = True
             price_thread.start()
 
@@ -181,8 +186,12 @@ def start_parsing_thread(user_id: str):
         if user_id in user_parse_thread:
             logger.info(f"Thread already running for user ID: {user_id}. Skipped...")
         else:
-            thread = threading.Thread(target=create_article_loop, args=(user_id,))
-            thread.daemon = True
+            thread = threading.Thread(
+                target=create_article_loop, 
+                args=(user_id,),
+                daemon=True,
+                name=f"ParsingThread-{user_id}"
+            )
             thread.start()
 
             user_parse_thread[user_id] = thread
