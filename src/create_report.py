@@ -133,6 +133,9 @@ class AdvicePredictor:
 
 class ReportTable:
     def __init__(self, ticker) -> None:
+        client_data_path = Path("client_data")
+        if not client_data_path.exists():
+            client_data_path.mkdir(parents=True, exist_ok=True)
         self.report_path = f"client_data/{ticker}_report.xlsx"
     
     def download_data(self, ticker):

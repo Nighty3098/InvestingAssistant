@@ -144,61 +144,114 @@ async def send_tokens_command(client: Client, message: Message):
 async def answer(client, callback_query):
     try:
         data = callback_query.data
-        user_id = callback_query.from_user.id
-        username = callback_query.from_user.username or "unknown"
 
-        async def handle_admin_add_remove(action):
-            if not db.is_admin(user_id):
-                logger.debug(f"{user_id} - not admin")
-                return
-            admin_usernames = db.get_all_admins()
-            if admin_usernames:
-                admins_list = "\n @".join(admin_usernames)
-                msg = f"\nAdmins: {admins_list}\nEnter username to {action}:"
+        if data == "add_admin":
+            if db.is_admin(user_id):
+                admin_usernames = db.get_all_admins()
+                if admin_usernames:
+                    admins_list = "\n @".join(admin_usernames)
+                    message = f"\nAdmins: {admins_list}\nEnter username to add:"
+                else:
+                    message = "\nNo admins found.\nEnter username to add:"
+
+                logger.info(f"add_admin: {user_id} - {username}")
+                user_states[user_id] = "add_admin"
+                await callback_query.message.edit_text(
+                    message,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                    reply_markup=admin_panel,
+                )
             else:
-                msg = f"\nNo admins found.\nEnter username to {action}:"
-            logger.info(f"{action}: {user_id} - {username}")
-            user_states[user_id] = action
-            await callback_query.message.edit_text(
-                msg,
-                parse_mode=enums.ParseMode.MARKDOWN,
-                reply_markup=admin_panel,
-            )
+                logger.debug(f"{user_id} - not admin")
 
-        async def handle_users_menu():
+        if data == "rm_admin":
+            if db.is_admin(user_id):
+                admin_usernames = db.get_all_admins()
+                if admin_usernames:
+                    admins_list = "\n @".join(admin_usernames)
+                    message = f"\nAdmins: {admins_list}\nEnter username to remove:"
+                else:
+                    message = "\nNo admins found.\nEnter username to remove:"
+
+                logger.info(f"rm_admin: {user_id} - {username}")
+                user_states[user_id] = "rm_admin"
+                await callback_query.message.edit_text(
+                    message,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                    reply_markup=admin_panel,
+                )
+            else:
+                logger.debug(f"{user_id} - not admin")
+
+        if data == "admin_panel":
+            photo_path = img_path
+            message = "Welcome to admin panel\n"
+
+            if db.is_admin(user_id):
+                logger.debug(f"User: {user_id} - {username} accessed admin panel")
+                await callback_query.message.edit_text(
+                    message,
+                    reply_markup=admin_panel,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                )
+            else:
+                logger.warning(f"User: {user_id} - admin panel - blocked")
+
+        if data == "users_menu":
             users_list = db.get_users_list()
-            msg = "Username - id - tokens - role - status\n"
             if users_list:
+                message = "Username - id - tokens - role - status\n"
                 for user in users_list:
-                    user_status = "Banned" if db.check_user_ban(user[1]) else "Active"
-                    msg += f"\n@{user[1]} - {user[0]} - {user[2]} - {user[3]} - {user_status}"
+                    user_status = ""
+                    _ = db.check_user_ban(user[1])
+                    if _ == True:
+                        user_status = "Banned"
+                    else:
+                        user_status = "Active"
+                    message += f"\n@{user[1]} - {user[0]} - {user[2]} - {user[3]} - {user_status}"
+
             if db.is_admin(user_id):
                 try:
                     await callback_query.message.edit_text(
-                        msg,
+                        message,
                         parse_mode=enums.ParseMode.MARKDOWN,
                         reply_markup=users_control,
                     )
                 except Exception as e:
                     logger.error(f"Error: {e}")
 
-        async def handle_simple_state(state, prompt, kb):
-            user_states[user_id] = state
+        if data == "ban_user":
             try:
+                user_states[user_id] = "ban_user"
                 await callback_query.message.edit_text(
-                    prompt,
+                    "Enter username:",
                     parse_mode=enums.ParseMode.MARKDOWN,
-                    reply_markup=kb,
+                    reply_markup=back_kb,
                 )
             except Exception as e:
                 logger.error(f"Error: {e}")
 
-        async def handle_get_price():
+        if data == "unblock_user":
+            try:
+                user_states[user_id] = "unblock_user"
+                await callback_query.message.edit_text(
+                    "Enter username:",
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                    reply_markup=back_kb,
+                )
+            except Exception as e:
+                logger.error(f"Error: {e}")
+
+        if data == "get_price":
             global price_sent_message
+
             logger.info(f"get_price: {user_id} - {username}")
+
             tokens = db.get_network_tokens(user_id)
+
             logger.debug(f"User ID: {user_id}, user: {username}, tokens: {tokens}")
-            if tokens < 1:
+
+            if (tokens) < 1:
                 price_sent_message = await callback_query.message.edit_text(
                     hvnt_network_tokens,
                     parse_mode=enums.ParseMode.MARKDOWN,
@@ -206,68 +259,149 @@ async def answer(client, callback_query):
                 )
             else:
                 user_states[user_id] = "price"
-                msg = f"You have {tokens} free tokens\n\n{check_price}"
+                users_stocks = db.get_users_stocks(user_id)
+                message = f"You have {tokens} free tokens\n\n{users_stocks}{check_price}"
                 price_sent_message = await callback_query.message.edit_text(
-                    msg,
+                    message,
                     parse_mode=enums.ParseMode.MARKDOWN,
                     reply_markup=back_kb,
                 )
 
-        async def handle_to_main():
+        if data == "to_main":
             logger.info(f"to_main: {user_id} - {username}")
+
             user_states[user_id] = "none"
             photo_path = img_path
+
             sent_messages = callback_query.message
+
             await app.delete_messages(chat_id=user_id, message_ids=sent_messages.id)
-            kb = admin_kb if db.is_admin(user_id) else main_kb
-            await app.send_photo(
-                photo=photo_path,
-                chat_id=user_id,
-                caption=WELCOME_MESSAGE,
-                reply_markup=kb,
+
+            if db.is_admin(user_id):
+                await app.send_photo(
+                    photo=photo_path,
+                    chat_id=user_id,
+                    caption=WELCOME_MESSAGE,
+                    reply_markup=admin_kb,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                )
+            else:
+                await app.send_photo(
+                    photo=photo_path,
+                    chat_id=user_id,
+                    caption=WELCOME_MESSAGE,
+                    reply_markup=main_kb,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                )
+
+        if data == "settings":
+            logger.info(f"settings: {user_id} - {username}")
+
+            message = "🛠 Settings 🛠"
+
+            await callback_query.message.edit_text(
+                message,
+                reply_markup=settings_kb,
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
 
-        async def handle_my_stocks():
+        if data == "remove_account_dialog":
+            logger.info(f"remove_account_dialog: {user_id} - {username}")
+
+            message = f"Dear, {username}\n{confirm_delete_account_message}"
+
+            await callback_query.message.edit_text(
+                message,
+                reply_markup=confirm_delete_account,
+                parse_mode=enums.ParseMode.MARKDOWN,
+            )
+
+        if data == "select_language":
+            logger.info(f"select_language: {user_id} - {username}")
+
+            message = f"Dear, {username}\n{select_lang_dialog}"
+
+            await callback_query.message.edit_text(
+                message,
+                reply_markup=select_language,
+                parse_mode=enums.ParseMode.MARKDOWN,
+            )
+
+        if data == "remove_account":
+            logger.info(f"remove_account: {user_id} - {username}")
+
+            db.remove_account(user_id)
+
+        if data == "my_stocks":
             logger.info(f"my_stocks: {user_id} - {username}")
+
             await callback_query.message.edit_text(
                 "__Loading...__",
                 reply_markup=stocks_management_kb,
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
+
             users_stocks = db.get_users_stocks(user_id)
-            msg = ASSETS_MESSAGE + "\n\n__" + users_stocks + "__"
+            message = ASSETS_MESSAGE + "\n\n__" + users_stocks + "__"
+
             await callback_query.message.edit_text(
-                msg,
+                message,
                 reply_markup=stocks_management_kb,
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
 
-        async def handle_stocks_action(state, request_msg, kb):
-            logger.info(f"{state}: {user_id} - {username}")
-            user_states[user_id] = state
+        if data == "add_stocks":
+            logger.info(f"add_stocks: {user_id} - {username}")
+            user_states[user_id] = "adding"
             stocks_message = db.get_users_stocks(user_id)
-            msg = request_msg + stocks_message
+            message = add_asset_request + stocks_message
             await callback_query.message.edit_text(
-                msg,
+                message,
                 parse_mode=enums.ParseMode.MARKDOWN,
-                reply_markup=kb,
+                reply_markup=back_stocks_kb,
             )
 
-        async def handle_back_stocks():
-            logger.info(f"back_stocks_kb: {user_id} - {username}")
-            user_states[user_id] = "none"
-            users_stocks = db.get_users_stocks(user_id)
-            msg = ASSETS_MESSAGE + "\n\n__" + users_stocks + "__"
+        if data == "remove_stocks":
+            logger.info(f"remove_stocks: {user_id} - {username}")
+            user_states[user_id] = "removing"
+            stocks_message = db.get_users_stocks(user_id)
+            message = remove_asset_request + stocks_message
             await callback_query.message.edit_text(
-                msg,
+                message,
+                parse_mode=enums.ParseMode.MARKDOWN,
+                reply_markup=back_stocks_kb,
+            )
+
+        if data == "back_stocks_kb":
+            logger.info(f"back_stocks_kb: {user_id} - {username}")
+
+            user_states[user_id] = "none"
+
+            users_stocks = db.get_users_stocks(user_id)
+            message = ASSETS_MESSAGE + "\n\n__" + users_stocks + "__"
+
+            await callback_query.message.edit_text(
+                message,
                 reply_markup=stocks_management_kb,
                 parse_mode=enums.ParseMode.MARKDOWN,
             )
 
-        async def handle_news():
+        if data == "predictions":
+            logger.info(f"predictions: {user_id} - {username}")
+            await callback_query.message.edit_text(
+                "🔮 **Predictions:** 🔮",
+                reply_markup=back_kb,
+                parse_mode=enums.ParseMode.MARKDOWN,
+            )
+
+        if data == "register_user":
+            logger.info(f"register_user: {user_id} - {username}")
+            await register_user(user_id, username, callback_query)
+
+        if data == "news":
             user_states[user_id] = "news"
             global news_sent_message
+
             if db.is_admin(user_id):
                 news_sent_message = await callback_query.message.edit_text(
                     get_news_period,
@@ -280,69 +414,17 @@ async def answer(client, callback_query):
                     parse_mode=enums.ParseMode.MARKDOWN,
                 )
 
-        # Маппинг команд на обработчики
-        handlers = {
-            "add_admin": lambda: handle_admin_add_remove("add_admin"),
-            "rm_admin": lambda: handle_admin_add_remove("rm_admin"),
-            "admin_panel": lambda: (
-                logger.debug(f"User: {user_id} - {username} accessed admin panel")
-                if db.is_admin(user_id)
-                else logger.warning(f"User: {user_id} - admin panel - blocked")
-            ) or callback_query.message.edit_text(
-                "Welcome to admin panel\n",
-                reply_markup=admin_panel,
-                parse_mode=enums.ParseMode.MARKDOWN,
-            ) if db.is_admin(user_id) else None,
-            "users_menu": handle_users_menu,
-            "ban_user": lambda: handle_simple_state("ban_user", "Enter username:", back_kb),
-            "unblock_user": lambda: handle_simple_state("unblock_user", "Enter username:", back_kb),
-            "get_price": handle_get_price,
-            "to_main": handle_to_main,
-            "settings": lambda: callback_query.message.edit_text(
-                "🛠 Settings 🛠",
-                reply_markup=settings_kb,
-                parse_mode=enums.ParseMode.MARKDOWN,
-            ),
-            "remove_account_dialog": lambda: callback_query.message.edit_text(
-                f"Dear, {username}\n{confirm_delete_account_message}",
-                reply_markup=confirm_delete_account,
-                parse_mode=enums.ParseMode.MARKDOWN,
-            ),
-            "select_language": lambda: callback_query.message.edit_text(
-                f"Dear, {username}\n{select_lang_dialog}",
-                reply_markup=select_language,
-                parse_mode=enums.ParseMode.MARKDOWN,
-            ),
-            "remove_account": lambda: (logger.info(f"remove_account: {user_id} - {username}"), db.remove_account(user_id)),
-            "my_stocks": handle_my_stocks,
-            "add_stocks": lambda: handle_stocks_action("adding", add_asset_request, back_stocks_kb),
-            "remove_stocks": lambda: handle_stocks_action("removing", remove_asset_request, back_stocks_kb),
-            "back_stocks_kb": handle_back_stocks,
-            "predictions": lambda: callback_query.message.edit_text(
-                "🔮 **Predictions:** 🔮",
-                reply_markup=back_kb,
-                parse_mode=enums.ParseMode.MARKDOWN,
-            ),
-            "register_user": lambda: (logger.info(f"register_user: {user_id} - {username}"), register_user(user_id, username, callback_query)),
-            "news": handle_news,
-            "set_city": lambda: (
-                user_states.__setitem__(user_id, "set_city"),
-                callback_query.message.edit_text(
-                    get_users_city,
-                    parse_mode=enums.ParseMode.MARKDOWN,
-                ),
-            ),
-        }
+        if data == "set_city":
+            user_states[user_id] = "set_city"
+            global city_sent_message
 
-        handler = handlers.get(data)
-        if handler:
-            result = handler()
-            if hasattr(result, "__await__"):
-                await result
+            city_sent_message = await callback_query.message.edit_text(
+                get_users_city,
+                parse_mode=enums.ParseMode.MARKDOWN,
+            )
 
     except Exception as e:
         logger.error(f"Error: {e}")
-
 
 
 @app.on_message(filters.private & filters.text)
@@ -403,7 +485,7 @@ async def handle_input(client, message):
             logger.error(err)
 
     if state == "adding":
-        await process_adding_stocks(client, message, user_id)
+        await process_adding_stocks(client, message, user_id, username)
         await app.send_photo(
             photo=photo_path,
             chat_id=user_id,

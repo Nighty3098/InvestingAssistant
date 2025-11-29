@@ -24,3 +24,4 @@ bot/src/IPSA_MODEL/price/stock_model.keras
 bot/src/IPSA_MODEL/price/stock_scaler.save
 bot/src/IPSA_MODEL/news/sentiment_model.keras
 bot/src/IPSA_MODEL/news/best_sentiment_model.keras
+/venv
