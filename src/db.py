@@ -100,40 +100,45 @@ class DatabaseManager:
 
     @staticmethod
     def get_stock_info(ticker: str) -> Tuple[str, float]:
-        def _get_info(stock):
-            try:
-                stock_info = stock.info
-                if not isinstance(stock_info, dict) or stock_info is None:
-                    logger.warning(f"Invalid stock info received for {ticker}: {stock_info}")
-                    return None, "Error"
-                name = stock_info.get("longName")
-                price = stock_info.get("currentPrice")
-                if name is None and price is None:
-                    logger.warning(f"No price/name data available for {ticker}")
-                    return None, "Error"
-                return name or "Name not found", price or 0.0
-            except AttributeError as ae:
-                logger.warning(f"AttributeError for {ticker}: {ae}")
-                return None, "Error"
-
         max_retries = 3
         retry_delay = 5
 
         for attempt in range(max_retries):
             try:
                 stock = yf.Ticker(ticker)
+                
                 if stock is None:
                     logger.warning(f"Failed to create Ticker object for {ticker}")
                     return ticker, "Error"
-                name, price = _get_info(stock)
-                if price == "Error":
+                
+                try:
+                    stock_info = stock.info
+                    if stock_info is None or not isinstance(stock_info, dict):
+                        logger.warning(f"Invalid stock info received for {ticker}: {stock_info}")
+                        return ticker, "Error"
+                    
+                    name = stock_info.get("longName")
+                    price = stock_info.get("currentPrice")
+                    
+                    if name is None and price is None:
+                        logger.warning(f"No price/name data available for {ticker}")
+                        return ticker, "Error"
+                    
+                    return (
+                        name or "Name not found",
+                        price or 0.0
+                    )
+                    
+                except AttributeError as ae:
+                    logger.warning(f"AttributeError for {ticker}: {ae}")
                     return ticker, "Error"
-                return name, price
+                
             except requests.exceptions.HTTPError as e:
                 if "404" in str(e):
                     logger.warning(f"Ticker {ticker} not found (404 error)")
                     return ticker, "Error"
                 logger.warning(f"HTTP error for {ticker}: {str(e)}")
+                
             except Exception as e:
                 logger.warning(f"Attempt {attempt+1}/{max_retries} failed for {ticker}: {str(e)}")
                 if attempt < max_retries - 1:
@@ -141,6 +146,7 @@ class DatabaseManager:
                     retry_delay *= 2
                 else:
                     return ticker, "Error"
+                
         return ticker, "Error"
 
     def check_user_ban(self, username: str) -> bool:

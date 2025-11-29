@@ -85,7 +85,7 @@ class NewsParser:
             response.raise_for_status()
             html = response.text
             soup = bs4.BeautifulSoup(html, HTML_PARSER)
-            _, _ = self._parse_title_and_date(soup)
+            title, date = self._parse_title_and_date(soup)
             paragraphs = soup.find_all("p")
             article_text = "\n".join([para.text for para in paragraphs if para.text])
             mentions = self._check_mentions(article_text, tickers, company_names)

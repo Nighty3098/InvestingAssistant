@@ -42,29 +42,6 @@ class StockPredictor:
             )
 
     def predict_future(self, ticker):
-        def _prepare_data(data):
-            if data.empty:
-                raise ValueError(f"No historical data for {ticker}")
-            feature_data = data.values
-            if not hasattr(self.scaler, "data_min_"):
-                self.scaler.fit(feature_data)
-                print(f"Scaler fitted with data for {ticker}")
-            scaled_data = self.scaler.transform(feature_data)
-            if len(scaled_data) < self.window_size:
-                raise ValueError(
-                    f"Not enough data points ({len(scaled_data)}) for window_size {self.window_size}"
-                )
-            return scaled_data
-
-        def _make_predictions(current_window):
-            predictions = []
-            for _ in range(self.forecast_days):
-                next_pred = self.model.predict(current_window[np.newaxis, ...])[0][0]
-                new_row = np.full((1, 7), next_pred)
-                current_window = np.concatenate([current_window[1:], new_row], axis=0)
-                predictions.append(next_pred)
-            return predictions
-
         if not hasattr(self, "scaler") or not isinstance(self.scaler, MinMaxScaler):
             self.scaler = MinMaxScaler()
             print("Initialized new MinMaxScaler")
@@ -75,15 +52,56 @@ class StockPredictor:
         for attempt in range(max_retries):
             try:
                 data = yf.Ticker(ticker).history('2y')
+
                 print(f"Data shape: {data.shape}")
                 print(f"Data: {data}")
 
-                scaled_data = _prepare_data(data)
-                current_window = scaled_data[-self.window_size:]
-                predictions = _make_predictions(current_window)
+                if data.empty:
+                    raise ValueError(f"No historical data for {ticker}")
 
-                dummy_data = np.zeros((len(predictions), 7))
+                feature_data = data.values
+
+                if not hasattr(self.scaler, "data_min_"):
+                    self.scaler.fit(feature_data)
+                    print(f"Scaler fitted with data for {ticker}")
+
+                scaled_data = self.scaler.transform(feature_data)
+
+                if len(scaled_data) < self.window_size:
+                    raise ValueError(
+                        f"Not enough data points ({len(scaled_data)}) for window_size {self.window_size}"
+                    )
+                
+                current_window = scaled_data[-self.window_size:]
+                
+                predictions = []
+                for _ in range(self.forecast_days):
+                    next_pred = self.model.predict(current_window[np.newaxis, ...])[0][
+                        0
+                    ]
+
+                    new_row = np.array(
+                        [
+                            [
+                                next_pred,
+                                next_pred,
+                                next_pred,
+                                next_pred,
+                                next_pred,
+                                next_pred,
+                                next_pred
+                            ]
+                        ]
+                    )
+
+                    current_window = np.concatenate(
+                        [current_window[1:], new_row], axis=0
+                    )
+                    predictions.append(next_pred)
+
+                dummy_data = np.zeros((len(predictions),7))
                 dummy_data[:, 0] = predictions
+
                 predictions = self.scaler.inverse_transform(dummy_data)[:, 0]
 
                 return predictions
