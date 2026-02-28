@@ -1,0 +1,32 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build and run Docker Compose",
+			"type": "shell",
+			"command": "docker-compose up --build",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Build and run Docker Compose",
+			"type": "shell",
+			"command": "docker-compose up --build",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Rebuild Docker Compose after psycopg2 fix",
+			"type": "shell",
+			"command": "docker-compose build --no-cache && docker-compose up",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}

@@ -9,6 +9,7 @@ from pyrogram import Client, enums, filters
 from pyrogram.types import InputMediaPhoto, Message
 
 from config import API_HASH, API_ID, BOT_TOKEN, app, data_file, log_file, logger
+from create_report import AdvicePredictor, ReportTable
 from db import db
 from func import (
     log_resource_usage,
@@ -48,12 +49,11 @@ from resources.messages import (
     remove_asset_request,
     select_lang_dialog,
 )
-from create_report import ReportTable
-from create_report import AdvicePredictor
 
 user_states = {}
 
-img_path = "resources/header.png"
+img_path = "src/resources/header.png"
+
 
 @app.on_message(filters.command("start"))
 async def start(client, message):
@@ -63,7 +63,6 @@ async def start(client, message):
         username = message.from_user.username or "unknown"
 
         db.get_connection()
-        db._create_users_table()
 
         if db.check_user_account(user_id):
             photo_path = img_path
@@ -71,48 +70,74 @@ async def start(client, message):
 
             if not db.check_user_ban(username):
                 if db.is_admin(user_id):
-                    await app.send_photo(
-                        photo=photo_path,
-                        chat_id=user_id,
-                        caption=WELCOME_MESSAGE,
-                        reply_markup=admin_kb,
-                        parse_mode=enums.ParseMode.MARKDOWN,
-                    )
+                    logger.debug(f"Attempting to send admin welcome photo to {user_id}")
+                    try:
+                        await app.send_photo(
+                            photo=photo_path,
+                            chat_id=user_id,
+                            caption=WELCOME_MESSAGE,
+                            reply_markup=admin_kb,
+                            parse_mode=enums.ParseMode.MARKDOWN,
+                        )
+                        logger.debug(f"Admin welcome photo sent to {user_id}")
+                    except Exception as e:
+                        logger.error(
+                            f"Error sending admin welcome photo: {e}", exc_info=True
+                        )
                 else:
-                    await app.send_photo(
-                        photo=photo_path,
-                        chat_id=user_id,
-                        caption=WELCOME_MESSAGE,
-                        reply_markup=main_kb,
-                        parse_mode=enums.ParseMode.MARKDOWN,
-                    )
+                    logger.debug(f"Attempting to send user welcome photo to {user_id}")
+                    try:
+                        await app.send_photo(
+                            photo=photo_path,
+                            chat_id=user_id,
+                            caption=WELCOME_MESSAGE,
+                            reply_markup=main_kb,
+                            parse_mode=enums.ParseMode.MARKDOWN,
+                        )
+                        logger.debug(f"User welcome photo sent to {user_id}")
+                    except Exception as e:
+                        logger.error(
+                            f"Error sending user welcome photo: {e}", exc_info=True
+                        )
 
                 start_parsing_thread(user_id)
                 start_price_monitor_thread(user_id)
             else:
                 photo_path = img_path
                 logger.info(f"New User: {user_id} - {username} - banned")
-                await app.send_photo(
-                    photo=photo_path,
-                    chat_id=user_id,
-                    caption=f"{username}, you are banned. Please contact the administrator for details",
-                    reply_markup=None,
-                    parse_mode=enums.ParseMode.MARKDOWN,
-                )
+                logger.debug(f"Attempting to send banned message photo to {user_id}")
+                try:
+                    await app.send_photo(
+                        photo=photo_path,
+                        chat_id=user_id,
+                        caption=f"{username}, you are banned. Please contact the administrator for details",
+                        reply_markup=None,
+                        parse_mode=enums.ParseMode.MARKDOWN,
+                    )
+                    logger.debug(f"Banned message photo sent to {user_id}")
+                except Exception as e:
+                    logger.error(
+                        f"Error sending banned message photo: {e}", exc_info=True
+                    )
 
         else:
             photo_path = img_path
             logger.info(f"New User: {user_id} - {username} on registering")
-            await app.send_photo(
-                photo=photo_path,
-                chat_id=user_id,
-                caption=not_register_message,
-                reply_markup=register_user_kb,
-                parse_mode=enums.ParseMode.MARKDOWN,
-            )
+            logger.debug(f"Attempting to send registration photo to {user_id}")
+            try:
+                await app.send_photo(
+                    photo=photo_path,
+                    chat_id=user_id,
+                    caption=not_register_message,
+                    reply_markup=register_user_kb,
+                    parse_mode=enums.ParseMode.MARKDOWN,
+                )
+                logger.debug(f"Registration photo sent to {user_id}")
+            except Exception as e:
+                logger.error(f"Error sending registration photo: {e}", exc_info=True)
 
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logger.error(f"Error: {e}", exc_info=True)
 
 
 @app.on_message(filters.command("send_tokens"))
@@ -143,6 +168,8 @@ async def send_tokens_command(client: Client, message: Message):
 @app.on_callback_query()
 async def answer(client, callback_query):
     try:
+        user_id = callback_query.from_user.id
+        username = callback_query.from_user.username or "unknown"
         data = callback_query.data
 
         if data == "add_admin":
@@ -260,7 +287,9 @@ async def answer(client, callback_query):
             else:
                 user_states[user_id] = "price"
                 users_stocks = db.get_users_stocks(user_id)
-                message = f"You have {tokens} free tokens\n\n{users_stocks}{check_price}"
+                message = (
+                    f"You have {tokens} free tokens\n\n{users_stocks}{check_price}"
+                )
                 price_sent_message = await callback_query.message.edit_text(
                     message,
                     parse_mode=enums.ParseMode.MARKDOWN,
@@ -485,7 +514,7 @@ async def handle_input(client, message):
             logger.error(err)
 
     if state == "adding":
-        await process_adding_stocks(client, message, user_id, username)
+        await process_adding_stocks(client, message, user_id)
         await app.send_photo(
             photo=photo_path,
             chat_id=user_id,
@@ -561,7 +590,9 @@ async def handle_input(client, message):
         updated_tokens = db.get_network_tokens(user_id)
 
         await app.delete_messages(chat_id=user_id, message_ids=wait_message.id)
-        await app.send_document(chat_id=user_id, document=report_path, caption="Ticker report")
+        await app.send_document(
+            chat_id=user_id, document=report_path, caption="Ticker report"
+        )
         await app.send_photo(
             chat_id=user_id,
             photo=predict_path,
