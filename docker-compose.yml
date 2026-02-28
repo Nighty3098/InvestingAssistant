@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16
+    container_name: ipsa_postgres
+    ports:
+      - "999:5432"
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ipsa_pgdata:/var/lib/postgresql/data
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ipsa_bot
+    env_file:
+      - .env
+    depends_on:
+      - db
+    restart: always
+
+  neural:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ipsa_neural
+    env_file:
+      - .env
+    depends_on:
+      - db
+    restart: always
+
+volumes:
+  ipsa_pgdata:

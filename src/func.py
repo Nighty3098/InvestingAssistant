@@ -97,9 +97,7 @@ async def _process_single_stock(user_id, stock_name, old_price_str):
     try:
         _, current_price = db.get_stock_info(stock_name)
         if current_price == "Error" or isinstance(current_price, str):
-            logger.error(
-                f"Error getting stock price for: {stock_name} {current_price}"
-            )
+            logger.error(f"Error getting stock price for: {stock_name} {current_price}")
             return None
         old_price = float(old_price_str) if old_price_str != 0 else 0
         new_price = float(current_price)
@@ -122,7 +120,9 @@ async def check_stock_prices(user_id):
             stock_prices = db.get_stocks(user_id)
             logger.debug(f"Old stock prices: {stock_prices}")
             for stock_name in list(stock_prices.keys()):
-                stock_prices[stock_name] = await _process_single_stock(user_id, stock_name, stock_prices[stock_name])
+                stock_prices[stock_name] = await _process_single_stock(
+                    user_id, stock_name, stock_prices[stock_name]
+                )
             retry_delay = 60
         except Exception as e:
             logger.error(f"Error in check_stock_prices: {e}")
@@ -164,10 +164,10 @@ def start_price_monitor_thread(user_id: str):
             )
         else:
             price_thread = threading.Thread(
-                target=create_price_loop, 
+                target=create_price_loop,
                 args=(user_id,),
                 daemon=True,
-                name=f"PriceThread-{user_id}"
+                name=f"PriceThread-{user_id}",
             )
             price_thread.daemon = True
             price_thread.start()
@@ -187,10 +187,10 @@ def start_parsing_thread(user_id: str):
             logger.info(f"Thread already running for user ID: {user_id}. Skipped...")
         else:
             thread = threading.Thread(
-                target=create_article_loop, 
+                target=create_article_loop,
                 args=(user_id,),
                 daemon=True,
-                name=f"ParsingThread-{user_id}"
+                name=f"ParsingThread-{user_id}",
             )
             thread.start()
 
@@ -312,16 +312,14 @@ def log_resource_usage():
 
 async def register_user(user_id, username, callback_query):
     try:
-        connection = db.get_connection()
-
-        db.registering_user(connection, user_id, username)
+        db.registering_user(user_id, username)
 
         await callback_query.message.edit_text(
             register_message,
             parse_mode=enums.ParseMode.MARKDOWN,
         )
         time.sleep(2)
-        if db.check_user_account(connection, user_id):
+        if db.check_user_account(user_id):
             if db.is_admin(user_id):
                 await callback_query.message.edit_text(
                     WELCOME_MESSAGE,
@@ -386,14 +384,11 @@ async def _remove_stock_quantity(client, user_id, stock_name, quantity, chat_id)
                 f"The asset '{stock_name}' has been successfully reduced.",
             )
         else:
-            await client.send_message(
-                chat_id, "Failed to update the asset."
-            )
+            await client.send_message(chat_id, "Failed to update the asset.")
     except ValueError:
-        await client.send_message(
-            chat_id, "The quantity must be a number."
-        )
+        await client.send_message(chat_id, "The quantity must be a number.")
         return
+
 
 async def _remove_stock_fully(client, user_id, stock_name, chat_id):
     if db.remove_stock_from_db(user_id, stock_name):
@@ -402,9 +397,8 @@ async def _remove_stock_fully(client, user_id, stock_name, chat_id):
             f"The asset '{stock_name}' has been successfully deleted.",
         )
     else:
-        await client.send_message(
-            chat_id, "Failed to delete the asset."
-        )
+        await client.send_message(chat_id, "Failed to delete the asset.")
+
 
 async def process_removing_stocks(client, message, user_id):
     stocks_input = message.text.strip()
@@ -416,6 +410,8 @@ async def process_removing_stocks(client, message, user_id):
             continue
         stock_name = name_quantity[0].strip()
         if len(name_quantity) == 2:
-            await _remove_stock_quantity(client, user_id, stock_name, name_quantity[1].strip(), chat_id)
+            await _remove_stock_quantity(
+                client, user_id, stock_name, name_quantity[1].strip(), chat_id
+            )
         else:
             await _remove_stock_fully(client, user_id, stock_name, chat_id)

@@ -6,7 +6,7 @@ import numpy as np
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-MODEL_DIR = os.path.join(os.getcwd(), "IPSA_MODEL", "news")
+MODEL_DIR = "/app/src/IPSA_MODEL/news"
 MODEL_PATH = os.path.join(MODEL_DIR, "sentiment_model.keras")
 TOKENIZER_PATH = os.path.join(MODEL_DIR, "tokenizer.pickle")
 
