@@ -336,29 +336,22 @@ class DatabaseManager:
             logger.error(f"Error '{e}' while creating tables")
 
     def block_user(self, username):
-        with self.get_connection() as conn:
-            try:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "UPDATE users SET is_banned = 1 WHERE username = ?", (username,)
-                )
-                conn.commit()
-                logger.info("User blocked successfully")
-            except Exception as e:
-                logger.error(f"Error '{e}' while blocking user")
+        try:
+            self.execute_query(
+                "UPDATE users SET is_banned = 1 WHERE username = %s", (username,)
+            )
+            logger.info("User blocked successfully")
+        except Exception as e:
+            logger.error(f"Error '{e}' while blocking user")
 
     def unblock_user(self, username):
-        """Unblock user by setting is_banned to 0"""
-        with self.get_connection() as conn:
-            try:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "UPDATE users SET is_banned = 0 WHERE username = ?", (username,)
-                )
-                conn.commit()
-                logger.info("User unblocked successfully")
-            except Exception as e:
-                logger.error(f"Error '{e}' while unblocking user")
+        try:
+            self.execute_query(
+                "UPDATE users SET is_banned = 0 WHERE username = %s", (username,)
+            )
+            logger.info("User unblocked successfully")
+        except Exception as e:
+            logger.error(f"Error '{e}' while unblocking user")
 
     def create_roles_table(self):
         with self.get_connection() as conn:
@@ -401,55 +394,42 @@ class DatabaseManager:
                 return []
 
     def add_admin_role(self, username):
-        if connection is None:
-            connection = self.get_connection()
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
+            role_id = self.execute_query(
+                "SELECT id FROM roles WHERE role_name = 'admin'", fetch=True
+            )
+            if not role_id:
+                logger.warning("Admin role not found")
+                return False
 
-                cursor.execute("SELECT id FROM roles WHERE role_name = 'admin'")
-                role_id = cursor.fetchone()
-
-                if role_id:
-                    cursor.execute(
-                        "UPDATE users SET role_id = %s WHERE username = %s",
-                        (role_id[0], username),
-                    )
-                    connection.commit()
-
-                    if cursor.rowcount > 0:
-                        logger.info(f"Added admin: {username}")
-                        return True
-                    else:
-                        logger.warning(f"User not found: {username}")
-                        return False
+            self.execute_query(
+                "UPDATE users SET role_id = %s WHERE username = %s",
+                (role_id[0][0], username),
+            )
+            logger.info(f"Added admin: {username}")
+            return True
         except Exception as e:
             logger.error(f"Error '{e}'")
-        return False
+            return False
 
     def remove_admin_role(self, username):
-        """Remove admin role from a user."""
-        if connection is None:
-            connection = self.get_connection()
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
+            user_role_id = self.execute_query(
+                "SELECT id FROM roles WHERE role_name = 'user'", fetch=True
+            )
+            if not user_role_id:
+                logger.warning("User role not found")
+                return False
 
-                # Set role_id to NULL (or you can set it to a default user role)
-                cursor.execute(
-                    "UPDATE users SET role_id = NULL WHERE username = %s", (username,)
-                )
-                connection.commit()
-
-                if cursor.rowcount > 0:
-                    logger.info(f"Removed from admin: {username}")
-                    return True
-                else:
-                    logger.warning(f"User not found: {username}")
-                    return False
+            self.execute_query(
+                "UPDATE users SET role_id = %s WHERE username = %s",
+                (user_role_id[0][0], username),
+            )
+            logger.info(f"Removed from admin: {username}")
+            return True
         except Exception as e:
             logger.error(f"Error '{e}'")
-        return False
+            return False
 
     def check_user_account(self, user_id):
         """Check user account from DB"""
