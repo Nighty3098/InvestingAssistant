@@ -25,6 +25,8 @@ services:
     depends_on:
       - db
     restart: always
+    volumes:
+      - ./proxies.txt:/app/proxies.txt
 
   neural:
     build:
@@ -36,6 +38,8 @@ services:
     depends_on:
       - db
     restart: always
+    volumes:
+      - ./proxies.txt:/app/proxies.txt
 
 volumes:
   ipsa_pgdata:
