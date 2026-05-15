@@ -1,0 +1,8 @@
+# SOCKS5 proxies — one per line
+# Format: socks5://user:pass@host:port or socks5://host:port
+# Use socks5h:// for DNS resolution through the proxy
+# Example:
+# socks5://127.0.0.1:1080
+# socks5://user:password@192.168.1.1:1080
+
+socks5://127.0.0.1:1080

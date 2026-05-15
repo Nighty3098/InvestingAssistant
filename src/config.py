@@ -1,4 +1,6 @@
 import os
+import random
+from urllib.parse import urlparse
 
 import loguru
 from dotenv import load_dotenv
@@ -20,17 +22,6 @@ if not all([API_ID, API_HASH, BOT_TOKEN]):
     raise ValueError(
         "Missing one or more required environment variables: API_ID, API_HASH, BOT_TOKEN."
     )
-
-try:
-    app = Client(
-        name="IPSA",
-        api_id=API_ID,
-        api_hash=API_HASH,
-        bot_token=BOT_TOKEN,
-        in_memory=False,
-    )
-except Exception as e:
-    raise RuntimeError(f"Failed to initialize the Pyrogram Client: {e}")
 
 logger = loguru.logger
 
@@ -58,3 +49,59 @@ except errors.RPCError as e:
     logger.error(f"An RPC error occurred: {e}")
 except Exception as e:
     logger.error(f"An unexpected error occurred: {e}")
+
+PROXIES_FILE = os.path.join(os.path.dirname(__file__), "..", "proxies.txt")
+
+
+def load_proxies():
+    proxies = []
+    try:
+        with open(PROXIES_FILE, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line and (line.startswith("socks5://") or line.startswith("socks5h://")):
+                    proxies.append(line)
+        if proxies:
+            logger.info(f"Loaded {len(proxies)} proxy(ies) from {PROXIES_FILE}")
+    except FileNotFoundError:
+        logger.info("proxies.txt not found, running without proxy")
+    return proxies
+
+
+def parse_socks5_url(url: str):
+    parsed = urlparse(url)
+    config = {
+        "scheme": "socks5",
+        "hostname": parsed.hostname,
+        "port": parsed.port,
+    }
+    if parsed.username:
+        config["username"] = parsed.username
+    if parsed.password:
+        config["password"] = parsed.password
+    return config
+
+
+proxy_url = None
+proxies = load_proxies()
+if proxies:
+    proxy_url = random.choice(proxies)
+    logger.info(f"Using SOCKS5 proxy: {proxy_url}")
+
+try:
+    app = Client(
+        name="IPSA",
+        api_id=API_ID,
+        api_hash=API_HASH,
+        bot_token=BOT_TOKEN,
+        in_memory=False,
+        proxy=parse_socks5_url(proxy_url) if proxy_url else None,
+    )
+except Exception as e:
+    raise RuntimeError(f"Failed to initialize the Pyrogram Client: {e}")
+
+if proxy_url:
+    os.environ["HTTP_PROXY"] = proxy_url
+    os.environ["HTTPS_PROXY"] = proxy_url
+    os.environ["ALL_PROXY"] = proxy_url
+    logger.info("Proxy environment variables set for requests/yfinance")
